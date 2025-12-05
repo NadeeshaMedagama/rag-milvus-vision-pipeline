@@ -60,7 +60,7 @@ PROCESS_LOCAL_FILES=true
 DATA_DIRECTORY=./data/diagrams
 ```
 
-For detailed Google Vision API setup instructions, see [Google Vision Setup Guide](docs/GOOGLE_VISION_SETUP.md).
+For detailed Google Vision API setup instructions, see [Google Vision Setup Guide](docs/readmes/GOOGLE_VISION_SETUP.md).
 
 ### Test Your Setup
 
@@ -143,7 +143,7 @@ python test_setup.py
 - **Interface Segregation**: Small, focused interfaces
 - **Dependency Inversion**: High-level modules depend on abstractions
 
-See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture documentation.
+See [ARCHITECTURE.md](docs/readmes/ARCHITECTURE.md) for detailed architecture documentation.
 
 ### Workflow Pipeline
 
@@ -196,9 +196,9 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture documentat
 
 ## 📖 Documentation
 
-- **[SETUP.md](docs/SETUP.md)** - Detailed setup instructions
-- **[USAGE.md](docs/USAGE.md)** - Usage guide with examples
-- **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - SOLID principles and architecture details
+- **[SETUP.md](docs/readmes/SETUP.md)** - Detailed setup instructions
+- **[USAGE.md](docs/readmes/USAGE.md)** - Usage guide with examples
+- **[ARCHITECTURE.md](docs/readmes/ARCHITECTURE.md)** - SOLID principles and architecture details
 
 ## 🔧 Configuration Options
 
