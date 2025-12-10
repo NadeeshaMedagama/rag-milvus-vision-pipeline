@@ -30,8 +30,13 @@ class GitHubRepositoryReader(IRepositoryReader):
             repo_url: URL of the repository to clone
 
         Returns:
-            Path to the cloned repository
+            Path to the cloned repository (empty string if no URL provided)
         """
+        # Skip cloning if URL is empty or None
+        if not repo_url or repo_url.strip() == "":
+            print("No repository URL provided - skipping repository cloning")
+            return ""
+
         temp_dir = tempfile.mkdtemp(prefix="rag_repo_")
 
         try:
@@ -59,8 +64,13 @@ class GitHubRepositoryReader(IRepositoryReader):
             repo_path: Path to the repository
 
         Returns:
-            List of Document objects
+            List of Document objects (empty list if no repo path)
         """
+        # Skip if no repository path provided
+        if not repo_path or repo_path.strip() == "":
+            print("No repository path provided - skipping markdown extraction")
+            return []
+
         documents = []
         repo_path_obj = Path(repo_path)
 
