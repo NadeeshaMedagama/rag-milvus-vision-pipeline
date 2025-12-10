@@ -102,21 +102,58 @@ class MilvusVectorStore(IVectorStore):
         if not self.collection:
             self.collection = Collection(self.collection_name)
 
-        # Prepare data for insertion
-        embeddings = [ec.embedding for ec in embedded_chunks]
-        contents = [ec.chunk.content[:65535] for ec in embedded_chunks]  # Truncate if needed
-        file_paths = [ec.chunk.source_file_path for ec in embedded_chunks]
-        repository_urls = [ec.chunk.repository_url for ec in embedded_chunks]
-        chunk_indices = [ec.chunk.chunk_index for ec in embedded_chunks]
+        # Get collection schema to determine field structure
+        schema = self.collection.schema
+        field_names = [field.name for field in schema.fields]
 
-        # Insert data
-        data = [
-            embeddings,
-            contents,
-            file_paths,
-            repository_urls,
-            chunk_indices
-        ]
+        print(f"Collection schema fields: {field_names}")
+
+        # Prepare embeddings data
+        embeddings = [ec.embedding for ec in embedded_chunks]
+
+        # Build data list based on actual schema fields
+        data = []
+
+        # Check if this is old schema (2 fields) or new schema (6 fields)
+        if len(field_names) == 2:
+            print("⚠️  Warning: Collection has old schema (2 fields only)")
+            print("⚠️  Metadata (content, file_path, etc.) will NOT be stored")
+            print("⚠️  To use new schema with metadata, set FORCE_REPROCESS=true in .env")
+
+            # For old schema, we need to match the field order and names exactly
+            for field in schema.fields:
+                if field.name == "id":
+                    if field.auto_id:
+                        continue  # Skip auto-generated ID
+                    else:
+                        # If ID is not auto-generated, we need to provide IDs
+                        # This shouldn't happen in modern Milvus, but handle it
+                        ids = list(range(len(embedded_chunks)))
+                        data.append(ids)
+                elif field.name == "vector" or field.name == "embedding":
+                    # Old schema might use 'vector' instead of 'embedding'
+                    data.append(embeddings)
+        else:
+            # New schema: id, embedding, content, file_path, repository_url, chunk_index
+            contents = [ec.chunk.content[:65535] for ec in embedded_chunks]  # Truncate if needed
+            file_paths = [ec.chunk.source_file_path for ec in embedded_chunks]
+            repository_urls = [ec.chunk.repository_url for ec in embedded_chunks]
+            chunk_indices = [ec.chunk.chunk_index for ec in embedded_chunks]
+
+            # Build data list based on actual schema fields (excluding auto_id primary key)
+            for field in schema.fields:
+                if field.name == "id" and field.auto_id:
+                    continue  # Skip auto-generated ID field
+                elif field.name == "embedding" or field.name == "vector":
+                    data.append(embeddings)
+                elif field.name == "content":
+                    data.append(contents)
+                elif field.name == "file_path":
+                    data.append(file_paths)
+                elif field.name == "repository_url":
+                    data.append(repository_urls)
+                elif field.name == "chunk_index":
+                    data.append(chunk_indices)
 
         self.collection.insert(data)
         self.collection.flush()
@@ -138,6 +175,18 @@ class MilvusVectorStore(IVectorStore):
 
         self.collection.load()
 
+        # Determine the vector field name (could be 'embedding' or 'vector')
+        schema = self.collection.schema
+        field_names = [field.name for field in schema.fields]
+
+        vector_field = "embedding" if "embedding" in field_names else "vector"
+
+        # Determine which output fields are available
+        available_output_fields = []
+        for field_name in ["content", "file_path", "repository_url", "chunk_index"]:
+            if field_name in field_names:
+                available_output_fields.append(field_name)
+
         search_params = {
             "metric_type": "L2",
             "params": {"nprobe": 10}
@@ -145,24 +194,34 @@ class MilvusVectorStore(IVectorStore):
 
         results = self.collection.search(
             data=[query_embedding],
-            anns_field="embedding",
+            anns_field=vector_field,
             param=search_params,
             limit=top_k,
-            output_fields=["content", "file_path", "repository_url", "chunk_index"]
+            output_fields=available_output_fields if available_output_fields else None
         )
 
         # Format results
         formatted_results = []
         for hits in results:
             for hit in hits:
-                formatted_results.append({
+                result = {
                     "id": hit.id,
                     "distance": hit.distance,
-                    "content": hit.entity.get("content"),
-                    "file_path": hit.entity.get("file_path"),
-                    "repository_url": hit.entity.get("repository_url"),
-                    "chunk_index": hit.entity.get("chunk_index")
-                })
+                }
+
+                # Add metadata fields if available
+                if available_output_fields:
+                    result["content"] = hit.entity.get("content")
+                    result["file_path"] = hit.entity.get("file_path")
+                    result["repository_url"] = hit.entity.get("repository_url")
+                    result["chunk_index"] = hit.entity.get("chunk_index")
+                else:
+                    result["content"] = None
+                    result["file_path"] = None
+                    result["repository_url"] = None
+                    result["chunk_index"] = None
+
+                formatted_results.append(result)
 
         return formatted_results
 
@@ -233,6 +292,29 @@ class MilvusVectorStore(IVectorStore):
             self.collection = Collection(self.collection_name)
             existing_count = self.get_document_count()
             print(f"Found {existing_count} existing documents in collection")
+
+            # Show schema information
+            schema = self.collection.schema
+            field_names = [field.name for field in schema.fields]
+            print(f"Collection schema: {', '.join(field_names)}")
+
+            # Check if schema matches expected structure
+            expected_fields = ["id", "embedding", "content", "file_path", "repository_url", "chunk_index"]
+            if len(field_names) < len(expected_fields):
+                print("\n" + "="*60)
+                print("⚠️  SCHEMA COMPATIBILITY MODE")
+                print("="*60)
+                print(f"Existing collection has {len(field_names)} fields: {', '.join(field_names)}")
+                print(f"New schema expects {len(expected_fields)} fields: {', '.join(expected_fields)}")
+                print("\nThe system will work in COMPATIBILITY MODE:")
+                print("✓ New data will be inserted using existing schema")
+                print("✓ Existing data will NOT be deleted")
+                print("⚠️  Some metadata may not be stored")
+                print("\n💡 To use full schema with metadata:")
+                print("   1. Set FORCE_REPROCESS=true in .env")
+                print("   2. Run the pipeline again")
+                print("   (This will recreate the collection with new schema)")
+                print("="*60 + "\n")
         else:
             print(f"Collection '{self.collection_name}' does not exist. Creating new collection...")
             self.initialize_collection()
