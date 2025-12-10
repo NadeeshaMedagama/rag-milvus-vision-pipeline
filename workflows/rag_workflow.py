@@ -79,6 +79,8 @@ class RAGWorkflow:
         except Exception as e:
             state["error"] = f"Failed to clone repository: {str(e)}"
             state["status"] = "error"
+            state["repo_path"] = ""
+
         return state
 
     def _extract_documents(self, state: RAGState) -> RAGState:
@@ -101,15 +103,16 @@ class RAGWorkflow:
         except Exception as e:
             state["error"] = f"Failed to extract documents: {str(e)}"
             state["status"] = "error"
+            state["documents"] = []
+
         return state
 
     def _process_local_files(self, state: RAGState) -> RAGState:
-        """Process local files from data directory."""
+        """Process local files (images, diagrams, etc) using Vision API."""
         print("\n=== Step 3: Processing Local Files (Diagrams, Images, Documents) ===")
         if state.get("error"):
             return state
 
-        # Skip if local file processing is disabled or reader not available
         if not state.get("process_local_files") or not self.local_file_reader:
             print("Skipping local file processing (disabled or not configured)")
             return state
@@ -389,9 +392,6 @@ class RAGWorkflow:
             print(f"   - Chunks created: {len(final_state['chunks'])}")
             print(f"   - Embeddings stored: {len(final_state['embedded_chunks'])}")
 
-        print(f"{'='*60}\n")
-
-        return final_state
         print(f"{'='*60}\n")
 
         return final_state
