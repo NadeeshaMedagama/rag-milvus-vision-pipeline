@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     milvus_collection_name: str = Field(default="readme_embeddings", alias="MILVUS_COLLECTION_NAME")
 
     # GitHub Repository Configuration
-    github_repo_url: str = Field(..., alias="GITHUB_REPO_URL")
+    github_repo_url: str = Field(default="", alias="GITHUB_REPO_URL")
     github_token: str = Field(default="", alias="GITHUB_TOKEN")
 
     # Application Configuration
