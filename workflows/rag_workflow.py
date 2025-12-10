@@ -66,9 +66,15 @@ class RAGWorkflow:
             else:
                 state["existing_file_paths"] = set()
 
-            # Clone repository
-            repo_path = self.repository_reader.clone_repository(state["repository_url"])
-            state["repo_path"] = repo_path
+            # Clone repository (will return empty string if no URL provided)
+            repo_url = state.get("repository_url", "")
+            if repo_url and repo_url.strip():
+                repo_path = self.repository_reader.clone_repository(repo_url)
+                state["repo_path"] = repo_path
+            else:
+                print("No repository URL provided - will process local files only")
+                state["repo_path"] = ""
+
             state["status"] = "repository_cloned"
         except Exception as e:
             state["error"] = f"Failed to clone repository: {str(e)}"
@@ -82,10 +88,16 @@ class RAGWorkflow:
             return state
 
         try:
-            documents = self.repository_reader.get_markdown_files(state["repo_path"])
-            state["documents"] = documents
+            repo_path = state.get("repo_path", "")
+            if repo_path and repo_path.strip():
+                documents = self.repository_reader.get_markdown_files(repo_path)
+                state["documents"] = documents
+                print(f"Extracted {len(documents)} markdown documents from repository")
+            else:
+                print("No repository cloned - will rely on local files only")
+                state["documents"] = []
+
             state["status"] = "documents_extracted"
-            print(f"Extracted {len(documents)} markdown documents from repository")
         except Exception as e:
             state["error"] = f"Failed to extract documents: {str(e)}"
             state["status"] = "error"
