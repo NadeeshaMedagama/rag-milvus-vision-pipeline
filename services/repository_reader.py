@@ -40,13 +40,11 @@ class GitHubRepositoryReader(IRepositoryReader):
         temp_dir = tempfile.mkdtemp(prefix="rag_repo_")
 
         try:
-            # Add token to URL if provided
-            if self.github_token:
-                # Parse URL and insert token
-                if "https://" in repo_url:
-                    repo_url = repo_url.replace("https://", f"https://{self.github_token}@")
+            # Parse URL and insert token
+            if self.github_token and "https://" in repo_url:
+                repo_url = repo_url.replace("https://", f"https://{self.github_token}@")
 
-            print(f"Cloning repository: {repo_url}")
+            print(f"Cloning repository: {repo_url.replace(self.github_token, '***') if self.github_token else repo_url}")
             git.Repo.clone_from(repo_url, temp_dir, depth=1)
             print(f"Repository cloned to: {temp_dir}")
             return temp_dir
@@ -73,8 +71,6 @@ class GitHubRepositoryReader(IRepositoryReader):
 
         documents = []
         repo_path_obj = Path(repo_path)
-
-        # Find all .md files recursively
         md_files = list(repo_path_obj.rglob("*.md"))
 
         print(f"Found {len(md_files)} markdown files")
