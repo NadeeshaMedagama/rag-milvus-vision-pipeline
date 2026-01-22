@@ -140,3 +140,114 @@ class GoogleVisionAnalyzer(IVisionAnalyzer):
 
         return "\n".join(summary_parts)
 
+    def analyze_image_from_url(self, image_url: str) -> str:
+        """
+        Analyze an image from URL and return a comprehensive description.
+
+        Args:
+            image_url: URL of the image
+
+        Returns:
+            Comprehensive description of the image
+        """
+        try:
+            image = vision.Image()
+            image.source.image_uri = image_url
+
+            # Perform multiple types of detection
+            response = self.client.annotate_image({
+                'image': image,
+                'features': [
+                    {'type_': vision.Feature.Type.LABEL_DETECTION, 'max_results': self.max_results},
+                    {'type_': vision.Feature.Type.TEXT_DETECTION},
+                    {'type_': vision.Feature.Type.DOCUMENT_TEXT_DETECTION},
+                    {'type_': vision.Feature.Type.OBJECT_LOCALIZATION, 'max_results': self.max_results},
+                    {'type_': vision.Feature.Type.LOGO_DETECTION, 'max_results': self.max_results},
+                ],
+            })
+
+            analysis_parts = []
+
+            # Add labels
+            if response.label_annotations:
+                labels = [label.description for label in response.label_annotations]
+                analysis_parts.append(f"Labels detected: {', '.join(labels)}")
+
+            # Add detected objects
+            if response.localized_object_annotations:
+                objects = [obj.name for obj in response.localized_object_annotations]
+                analysis_parts.append(f"Objects detected: {', '.join(objects)}")
+
+            # Add detected logos
+            if response.logo_annotations:
+                logos = [logo.description for logo in response.logo_annotations]
+                analysis_parts.append(f"Logos detected: {', '.join(logos)}")
+
+            # Add text content
+            if response.text_annotations:
+                text_content = response.text_annotations[0].description
+                analysis_parts.append(f"Text content:\n{text_content}")
+
+            return "\n\n".join(analysis_parts) if analysis_parts else "No significant content detected."
+
+        except Exception as e:
+            return f"Error analyzing image from URL: {str(e)}"
+
+    def extract_text_from_url(self, image_url: str) -> str:
+        """
+        Extract text from an image URL using OCR.
+
+        Args:
+            image_url: URL of the image
+
+        Returns:
+            Extracted text
+        """
+        try:
+            image = vision.Image()
+            image.source.image_uri = image_url
+
+            response = self.client.document_text_detection(image=image)
+
+            if response.text_annotations:
+                return response.text_annotations[0].description
+
+            return ""
+
+        except Exception as e:
+            return f"Error extracting text from URL: {str(e)}"
+
+    def generate_summary_from_url(self, image_url: str) -> str:
+        """
+        Generate a comprehensive summary of an image from URL.
+
+        Args:
+            image_url: URL of the image
+
+        Returns:
+            Comprehensive summary
+        """
+        # Extract filename from URL
+        from urllib.parse import urlparse, unquote
+        parsed_url = urlparse(image_url)
+        file_name = unquote(os.path.basename(parsed_url.path)) or "remote_image"
+        file_extension = os.path.splitext(file_name)[1].lower() or ".unknown"
+
+        summary_parts = [
+            f"URL: {image_url}",
+            f"File: {file_name}",
+            f"Type: {file_extension}",
+            f"\n--- Image Analysis ---"
+        ]
+
+        # Get full analysis
+        analysis = self.analyze_image_from_url(image_url)
+        summary_parts.append(analysis)
+
+        # Add extracted text separately for better context
+        text = self.extract_text_from_url(image_url)
+        if text and text not in analysis:
+            summary_parts.append(f"\n--- Extracted Text ---\n{text}")
+
+        return "\n".join(summary_parts)
+
