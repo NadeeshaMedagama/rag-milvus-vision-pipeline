@@ -5,11 +5,13 @@ A production-ready Retrieval-Augmented Generation (RAG) application that process
 ## 🌟 Features
 
 - **📚 GitHub Repository Integration**: Automatically clone and extract all `.md` files from any GitHub repository
+- **🌐 URL Content Processing**: Fetch and process content from web URLs including images
 - **🖼️ Google Vision API Integration**: Analyze diagrams, images, and visual content with AI-powered computer vision
-- **📊 Multi-Format Document Support**: Process images, diagrams (.drawio), Word documents (.docx), and spreadsheets (.xlsx)
+- **📊 Multi-Format Document Support**: Process images, diagrams (.drawio), Word documents (.docx), spreadsheets (.xlsx), PDFs, and PowerPoint presentations (.pptx)
 - **✂️ Intelligent Chunking**: Split documents into manageable chunks with configurable overlap using LangChain
 - **🧠 Azure OpenAI Embeddings**: Generate high-quality embeddings using Azure OpenAI's embedding models
 - **🗄️ Milvus Cloud Storage**: Efficiently store and retrieve embeddings with vector similarity search
+- **🔄 Smart Deduplication**: Skip already-indexed documents to avoid duplicate embeddings
 - **🏗️ SOLID Architecture**: Clean, maintainable code following all five SOLID principles
 - **🔄 LangGraph Workflow**: State machine-based workflow orchestration for robust processing
 - **🔍 Interactive Query**: Natural language search interface to query indexed documents
@@ -58,6 +60,15 @@ GITHUB_REPO_URL=https://github.com/langchain-ai/langgraph
 GOOGLE_APPLICATION_CREDENTIALS=./credentials/your-credentials.json
 PROCESS_LOCAL_FILES=true
 DATA_DIRECTORY=./data/diagrams
+
+# URL Processing (optional)
+PROCESS_URLS=false
+URL_LIST=https://example.com/doc1,https://example.com/doc2
+URL_FILE_PATH=./urls.txt
+
+# Processing Control
+SKIP_EXISTING_DOCUMENTS=true
+FORCE_REPROCESS=false
 ```
 
 For detailed Google Vision API setup instructions, see [Google Vision Setup Guide](docs/readmes/GOOGLE_VISION_SETUP.md).
@@ -103,7 +114,8 @@ python test_setup.py
 │   ├── embedding_service.py   # Azure OpenAI embeddings
 │   ├── vector_store.py        # Milvus vector operations
 │   ├── vision_analyzer.py     # Google Vision API image analysis
-│   └── local_file_reader.py   # Local file reading (diagrams, images, docs)
+│   ├── local_file_reader.py   # Local file reading (diagrams, images, docs, PDFs, PPTs)
+│   └── url_content_reader.py  # URL content fetching and processing
 │
 ├── workflows/                   # 🔄 LangGraph workflows
 │   ├── __init__.py
@@ -160,9 +172,22 @@ See [ARCHITECTURE.md](docs/readmes/ARCHITECTURE.md) for detailed architecture do
            ▼
 ┌─────────────────────┐
 │ Process Local Files │ ◄── Google Vision API
-│ (Diagrams/Images)   │     • Image Analysis
-└──────────┬──────────┘     • OCR Text Extraction
-           │                • Object Detection
+│ (Diagrams/Images/   │     • Image Analysis
+│  PDFs/PowerPoints)  │     • OCR Text Extraction
+└──────────┬──────────┘     • Object Detection
+           │
+           ▼
+┌─────────────────────┐
+│  Process URLs       │ ◄── HTTP Fetch + Vision API
+│ (Web/Image URLs)    │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Filter Existing     │ ◄── Skip Already Indexed
+│    Documents        │
+└──────────┬──────────┘
+           │
            ▼
 ┌─────────────────────┐
 │  Chunk Documents    │
@@ -193,6 +218,9 @@ See [ARCHITECTURE.md](docs/readmes/ARCHITECTURE.md) for detailed architecture do
 | **Diagrams** | `.drawio` (+ `.png` exports) | XML parsing + Vision API |
 | **Documents** | `.docx` | Text and table extraction |
 | **Spreadsheets** | `.xlsx`, `.xls` | Data extraction from sheets |
+| **PDF** | `.pdf` | Text and table extraction (pdfplumber) |
+| **PowerPoint** | `.pptx` | Slide text and table extraction |
+| **URLs** | Web pages, images | HTTP fetch + Vision API for images |
 
 ## 📖 Documentation
 
@@ -208,6 +236,14 @@ See [ARCHITECTURE.md](docs/readmes/ARCHITECTURE.md) for detailed architecture do
 | `CHUNK_OVERLAP` | Overlap between chunks | 200 |
 | `EMBEDDING_DIMENSION` | Vector dimension | 1536 |
 | `MILVUS_COLLECTION_NAME` | Collection name | readme_embeddings |
+| `PROCESS_LOCAL_FILES` | Enable local file processing | true |
+| `DATA_DIRECTORY` | Directory for local files | ./data/diagrams |
+| `PROCESS_URLS` | Enable URL content processing | false |
+| `URL_LIST` | Comma-separated URLs to process | "" |
+| `URL_FILE_PATH` | Path to file containing URLs | "" |
+| `URL_TIMEOUT` | Timeout for URL fetching (seconds) | 30 |
+| `SKIP_EXISTING_DOCUMENTS` | Skip already indexed documents | true |
+| `FORCE_REPROCESS` | Force reprocess all documents | false |
 
 ## 💡 Example Usage
 
