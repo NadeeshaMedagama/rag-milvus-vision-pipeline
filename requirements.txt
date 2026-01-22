@@ -15,4 +15,5 @@ python-docx>=1.0.0
 openpyxl>=3.1.0
 flask>=3.0.0
 flask-cors>=4.0.0
+beautifulsoup4>=4.12.0
 
