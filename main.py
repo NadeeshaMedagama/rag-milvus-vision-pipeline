@@ -6,7 +6,8 @@ from services import (
     AzureOpenAIEmbeddingService,
     MilvusVectorStore,
     GoogleVisionAnalyzer,
-    LocalFileReader
+    LocalFileReader,
+    URLContentReader
 )
 from workflows import RAGWorkflow
 
@@ -50,8 +51,9 @@ def main():
     # Google Vision API service (for analyzing diagrams and images)
     vision_analyzer = None
     local_file_reader = None
+    url_content_reader = None
 
-    if settings.process_local_files:
+    if settings.process_local_files or settings.process_urls:
         try:
             print("Initializing Google Vision API service...")
             vision_analyzer = GoogleVisionAnalyzer(
@@ -60,13 +62,33 @@ def main():
             )
 
             # Local file reader service (uses Vision API for images)
-            local_file_reader = LocalFileReader(
-                vision_analyzer=vision_analyzer
-            )
-            print("✓ Google Vision API and Local File Reader initialized")
+            if settings.process_local_files:
+                local_file_reader = LocalFileReader(
+                    vision_analyzer=vision_analyzer
+                )
+                print("✓ Google Vision API and Local File Reader initialized")
+
+            # URL content reader service (uses Vision API for image URLs)
+            if settings.process_urls:
+                url_content_reader = URLContentReader(
+                    vision_analyzer=vision_analyzer,
+                    timeout=settings.url_timeout
+                )
+                print("✓ URL Content Reader initialized")
+
         except Exception as e:
             print(f"Warning: Failed to initialize Google Vision API: {str(e)}")
-            print("Continuing without local file processing...")
+            print("Continuing without image analysis...")
+
+    # Parse URLs to process
+    urls_to_process = []
+    if settings.process_urls:
+        if settings.url_list:
+            # Parse comma-separated URLs
+            urls_to_process = [url.strip() for url in settings.url_list.split(',') if url.strip()]
+        if settings.url_file_path:
+            # URLs from file will be loaded by the workflow
+            pass
 
     # Create workflow
     print("Creating RAG workflow...")
@@ -75,7 +97,8 @@ def main():
         document_chunker=document_chunker,
         embedding_service=embedding_service,
         vector_store=vector_store,
-        local_file_reader=local_file_reader
+        local_file_reader=local_file_reader,
+        url_content_reader=url_content_reader
     )
 
     # Run workflow
@@ -84,7 +107,10 @@ def main():
         local_data_dir=settings.data_directory,
         process_local_files=settings.process_local_files,
         skip_existing_documents=settings.skip_existing_documents,
-        force_reprocess=settings.force_reprocess
+        force_reprocess=settings.force_reprocess,
+        process_urls=settings.process_urls,
+        urls=urls_to_process,
+        url_file_path=settings.url_file_path
     )
 
     # Display results
