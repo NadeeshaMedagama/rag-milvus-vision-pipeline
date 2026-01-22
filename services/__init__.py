@@ -5,6 +5,7 @@ from .embedding_service import AzureOpenAIEmbeddingService
 from .vector_store import MilvusVectorStore
 from .vision_analyzer import GoogleVisionAnalyzer
 from .local_file_reader import LocalFileReader
+from .url_content_reader import URLContentReader
 
 __all__ = [
     "GitHubRepositoryReader",
@@ -12,6 +13,7 @@ __all__ = [
     "AzureOpenAIEmbeddingService",
     "MilvusVectorStore",
     "GoogleVisionAnalyzer",
-    "LocalFileReader"
+    "LocalFileReader",
+    "URLContentReader"
 ]
 
