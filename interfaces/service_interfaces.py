@@ -55,6 +55,21 @@ class IVisionAnalyzer(ABC):
         """Generate a comprehensive summary of an image or diagram."""
         pass
 
+    @abstractmethod
+    def analyze_image_from_url(self, image_url: str) -> str:
+        """Analyze an image from URL and return a comprehensive description."""
+        pass
+
+    @abstractmethod
+    def extract_text_from_url(self, image_url: str) -> str:
+        """Extract text from an image URL using OCR."""
+        pass
+
+    @abstractmethod
+    def generate_summary_from_url(self, image_url: str) -> str:
+        """Generate a comprehensive summary of an image from URL."""
+        pass
+
 
 class IDocumentChunker(ABC):
     """Interface for chunking documents."""
