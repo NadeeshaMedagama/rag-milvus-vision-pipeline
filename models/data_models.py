@@ -13,6 +13,8 @@ class DocumentType(Enum):
     SPREADSHEET = "spreadsheet"
     WORD_DOCUMENT = "word_document"
     DRAWIO = "drawio"
+    PDF = "pdf"
+    POWERPOINT = "powerpoint"
 
 
 @dataclass
