@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     data_directory: str = Field(default="./data/diagrams", alias="DATA_DIRECTORY")
     process_local_files: bool = Field(default=True, alias="PROCESS_LOCAL_FILES")
 
+    # URL Processing Configuration
+    process_urls: bool = Field(default=False, alias="PROCESS_URLS")
+    url_list: str = Field(default="", alias="URL_LIST")  # Comma-separated URLs or path to file
+    url_file_path: str = Field(default="", alias="URL_FILE_PATH")  # Path to file containing URLs
+    url_timeout: int = Field(default=30, alias="URL_TIMEOUT")
+
     # Processing Control Configuration
     skip_existing_documents: bool = Field(default=True, alias="SKIP_EXISTING_DOCUMENTS")
     force_reprocess: bool = Field(default=False, alias="FORCE_REPROCESS")
