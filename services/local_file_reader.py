@@ -4,6 +4,8 @@ from typing import List
 from pathlib import Path
 import docx
 import openpyxl
+from pptx import Presentation
+import pdfplumber
 
 from interfaces import ILocalFileReader, IVisionAnalyzer
 from models.data_models import Document, DocumentType
@@ -17,6 +19,8 @@ class LocalFileReader(ILocalFileReader):
     DIAGRAM_EXTENSIONS = {'.drawio'}
     DOCUMENT_EXTENSIONS = {'.docx', '.doc'}
     SPREADSHEET_EXTENSIONS = {'.xlsx', '.xls'}
+    PDF_EXTENSIONS = {'.pdf'}
+    POWERPOINT_EXTENSIONS = {'.pptx', '.ppt'}
 
     def __init__(self, vision_analyzer: IVisionAnalyzer = None):
         """
@@ -82,6 +86,10 @@ class LocalFileReader(ILocalFileReader):
             return self._process_word_document(file_path)
         elif extension in self.SPREADSHEET_EXTENSIONS:
             return self._process_spreadsheet(file_path)
+        elif extension in self.PDF_EXTENSIONS:
+            return self._process_pdf(file_path)
+        elif extension in self.POWERPOINT_EXTENSIONS:
+            return self._process_powerpoint(file_path)
         else:
             # Skip unsupported file types
             return None
@@ -239,5 +247,115 @@ class LocalFileReader(ILocalFileReader):
                 repository_url="local",
                 document_type=DocumentType.SPREADSHEET,
                 metadata={"source": "local_directory", "file_type": "spreadsheet", "error": str(e)}
+            )
+
+    def _process_pdf(self, file_path: str) -> Document:
+        """Process PDF files using pdfplumber."""
+        try:
+            content = [f"PDF Document: {os.path.basename(file_path)}\n"]
+            page_count = 0
+
+            with pdfplumber.open(file_path) as pdf:
+                page_count = len(pdf.pages)
+                for i, page in enumerate(pdf.pages):
+                    page_text = page.extract_text()
+                    if page_text and page_text.strip():
+                        content.append(f"\n--- Page {i + 1} ---\n{page_text}")
+
+                    # Extract tables if present
+                    tables = page.extract_tables()
+                    for table_idx, table in enumerate(tables):
+                        if table:
+                            content.append(f"\n[Table {table_idx + 1} on Page {i + 1}]")
+                            for row in table:
+                                row_text = ' | '.join([str(cell) if cell else '' for cell in row])
+                                if row_text.strip():
+                                    content.append(row_text)
+
+            full_content = "\n".join(content)
+
+            # If no text was extracted, try to use Vision API for scanned PDFs
+            if len(full_content.strip()) < 50 and self.vision_analyzer:
+                # PDF might be image-based/scanned
+                full_content += "\n\n[Note: PDF appears to be image-based. Text extraction limited.]"
+
+            return Document(
+                content=full_content,
+                file_path=file_path,
+                repository_url="local",
+                document_type=DocumentType.PDF,
+                metadata={
+                    "source": "local_directory",
+                    "file_type": "pdf",
+                    "page_count": page_count
+                }
+            )
+        except Exception as e:
+            return Document(
+                content=f"PDF Document: {os.path.basename(file_path)} (Error reading: {str(e)})",
+                file_path=file_path,
+                repository_url="local",
+                document_type=DocumentType.PDF,
+                metadata={"source": "local_directory", "file_type": "pdf", "error": str(e)}
+            )
+
+    def _process_powerpoint(self, file_path: str) -> Document:
+        """Process PowerPoint files (.pptx, .ppt)."""
+        try:
+            # Only .pptx is supported by python-pptx
+            if file_path.endswith('.pptx'):
+                prs = Presentation(file_path)
+                content = [f"PowerPoint Presentation: {os.path.basename(file_path)}\n"]
+                slide_count = len(prs.slides)
+
+                for slide_num, slide in enumerate(prs.slides, 1):
+                    slide_content = []
+
+                    for shape in slide.shapes:
+                        # Extract text from shapes
+                        if hasattr(shape, "text") and shape.text.strip():
+                            slide_content.append(shape.text)
+
+                        # Extract text from tables
+                        if shape.has_table:
+                            table = shape.table
+                            for row in table.rows:
+                                row_text = ' | '.join([cell.text for cell in row.cells])
+                                if row_text.strip():
+                                    slide_content.append(row_text)
+
+                    if slide_content:
+                        content.append(f"\n--- Slide {slide_num} ---")
+                        content.extend(slide_content)
+
+                full_content = "\n".join(content)
+
+                return Document(
+                    content=full_content,
+                    file_path=file_path,
+                    repository_url="local",
+                    document_type=DocumentType.POWERPOINT,
+                    metadata={
+                        "source": "local_directory",
+                        "file_type": "powerpoint",
+                        "slide_count": slide_count
+                    }
+                )
+            else:
+                # .ppt format is not supported
+                return Document(
+                    content=f"PowerPoint: {os.path.basename(file_path)} (.ppt format not supported, only .pptx)",
+                    file_path=file_path,
+                    repository_url="local",
+                    document_type=DocumentType.POWERPOINT,
+                    metadata={"source": "local_directory", "file_type": "powerpoint", "unsupported_format": True}
+                )
+        except Exception as e:
+            return Document(
+                content=f"PowerPoint: {os.path.basename(file_path)} (Error reading: {str(e)})",
+                file_path=file_path,
+                repository_url="local",
+                document_type=DocumentType.POWERPOINT,
+                metadata={"source": "local_directory", "file_type": "powerpoint", "error": str(e)}
             )
 
