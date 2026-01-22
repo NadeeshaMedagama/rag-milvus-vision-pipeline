@@ -12,6 +12,9 @@ class RAGState(TypedDict):
     repo_path: str
     local_data_dir: str
     process_local_files: bool
+    process_urls: bool
+    urls: List[str]
+    url_file_path: str
     skip_existing_documents: bool
     force_reprocess: bool
     documents: List[Document]
@@ -33,7 +36,8 @@ class RAGWorkflow:
         document_chunker: IDocumentChunker,
         embedding_service: IEmbeddingService,
         vector_store: IVectorStore,
-        local_file_reader: Optional[ILocalFileReader] = None
+        local_file_reader: Optional[ILocalFileReader] = None,
+        url_content_reader = None
     ):
         """
         Initialize the RAG workflow.
@@ -44,12 +48,14 @@ class RAGWorkflow:
             embedding_service: Service for creating embeddings
             vector_store: Service for storing embeddings
             local_file_reader: Optional service for reading local files
+            url_content_reader: Optional service for reading content from URLs
         """
         self.repository_reader = repository_reader
         self.document_chunker = document_chunker
         self.embedding_service = embedding_service
         self.vector_store = vector_store
         self.local_file_reader = local_file_reader
+        self.url_content_reader = url_content_reader
         self.workflow = self._build_workflow()
 
     def _clone_repository(self, state: RAGState) -> RAGState:
@@ -130,6 +136,41 @@ class RAGWorkflow:
         except Exception as e:
             # Don't fail the entire workflow if local processing fails
             print(f"Warning: Failed to process local files: {str(e)}")
+
+        return state
+
+    def _process_urls(self, state: RAGState) -> RAGState:
+        """Process content from URLs using Vision API for images."""
+        print("\n=== Step 3b: Processing URLs (Images, Web Content) ===")
+        if state.get("error"):
+            return state
+
+        if not state.get("process_urls") or not self.url_content_reader:
+            print("Skipping URL processing (disabled or not configured)")
+            return state
+
+        try:
+            urls = state.get("urls", [])
+            url_file_path = state.get("url_file_path", "")
+
+            # Load URLs from file if specified
+            if url_file_path:
+                print(f"Loading URLs from file: {url_file_path}")
+                file_documents = self.url_content_reader.process_urls_from_file(url_file_path)
+                state["documents"].extend(file_documents)
+                print(f"Processed {len(file_documents)} URLs from file")
+
+            # Process URLs from list
+            if urls:
+                print(f"Processing {len(urls)} URLs from configuration...")
+                url_documents = self.url_content_reader.read_urls(urls)
+                state["documents"].extend(url_documents)
+                print(f"Processed {len(url_documents)} URLs from list")
+
+            print(f"Total documents after URL processing: {len(state['documents'])}")
+        except Exception as e:
+            # Don't fail the entire workflow if URL processing fails
+            print(f"Warning: Failed to process URLs: {str(e)}")
 
         return state
 
@@ -300,6 +341,7 @@ class RAGWorkflow:
         workflow.add_node("clone_repository", self._clone_repository)
         workflow.add_node("extract_documents", self._extract_documents)
         workflow.add_node("process_local_files", self._process_local_files)
+        workflow.add_node("process_urls", self._process_urls)
         workflow.add_node("filter_existing_documents", self._filter_existing_documents)
         workflow.add_node("chunk_documents", self._chunk_documents)
         workflow.add_node("create_embeddings", self._create_embeddings)
@@ -310,7 +352,8 @@ class RAGWorkflow:
         workflow.set_entry_point("clone_repository")
         workflow.add_edge("clone_repository", "extract_documents")
         workflow.add_edge("extract_documents", "process_local_files")
-        workflow.add_edge("process_local_files", "filter_existing_documents")
+        workflow.add_edge("process_local_files", "process_urls")
+        workflow.add_edge("process_urls", "filter_existing_documents")
         workflow.add_edge("filter_existing_documents", "chunk_documents")
         workflow.add_edge("chunk_documents", "create_embeddings")
         workflow.add_edge("create_embeddings", "store_embeddings")
@@ -325,7 +368,10 @@ class RAGWorkflow:
         local_data_dir: str = "",
         process_local_files: bool = False,
         skip_existing_documents: bool = True,
-        force_reprocess: bool = False
+        force_reprocess: bool = False,
+        process_urls: bool = False,
+        urls: List[str] = None,
+        url_file_path: str = ""
     ) -> RAGState:
         """
         Run the RAG workflow.
@@ -336,6 +382,9 @@ class RAGWorkflow:
             process_local_files: Whether to process local files
             skip_existing_documents: Skip documents already in vector store
             force_reprocess: Force reprocessing of all documents (overrides skip_existing)
+            process_urls: Whether to process URLs
+            urls: List of URLs to process
+            url_file_path: Path to file containing URLs
 
         Returns:
             Final state of the workflow
@@ -345,6 +394,9 @@ class RAGWorkflow:
             "repo_path": "",
             "local_data_dir": local_data_dir,
             "process_local_files": process_local_files,
+            "process_urls": process_urls,
+            "urls": urls or [],
+            "url_file_path": url_file_path,
             "skip_existing_documents": skip_existing_documents,
             "force_reprocess": force_reprocess,
             "documents": [],
@@ -363,6 +415,9 @@ class RAGWorkflow:
         print(f"Repository: {repository_url}")
         if process_local_files and local_data_dir:
             print(f"Local data directory: {local_data_dir}")
+        if process_urls:
+            url_count = len(urls) if urls else 0
+            print(f"URLs to process: {url_count} from config" + (f" + file: {url_file_path}" if url_file_path else ""))
         if force_reprocess:
             print(f"Mode: FORCE REPROCESS (will process all documents)")
         elif skip_existing_documents:
