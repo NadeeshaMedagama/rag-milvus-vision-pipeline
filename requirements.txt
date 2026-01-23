@@ -16,6 +16,7 @@ openpyxl>=3.1.0
 python-pptx>=0.6.23
 PyPDF2>=3.0.0
 pdfplumber>=0.10.0
+odfpy>=1.4.0
 flask>=3.0.0
 flask-cors>=4.0.0
 beautifulsoup4>=4.12.0
