@@ -1,6 +1,6 @@
 """Abstract interfaces for the RAG application (Interface Segregation Principle)."""
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Set, Optional
 from models.data_models import Document, Chunk, EmbeddedChunk
 
 
@@ -27,8 +27,14 @@ class ILocalFileReader(ABC):
     """Interface for reading local files and directories."""
 
     @abstractmethod
-    def read_directory(self, directory_path: str) -> List[Document]:
-        """Read all supported files from a directory recursively."""
+    def read_directory(self, directory_path: str, existing_file_paths: Optional[Set[str]] = None) -> List[Document]:
+        """
+        Read all supported files from a directory recursively.
+
+        Args:
+            directory_path: Path to the directory
+            existing_file_paths: Optional set of file paths to skip (already indexed)
+        """
         pass
 
     @abstractmethod
