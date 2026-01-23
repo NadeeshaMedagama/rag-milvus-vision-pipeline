@@ -252,6 +252,49 @@ See [ARCHITECTURE.md](docs/readmes/ARCHITECTURE.md) for detailed architecture do
 | `SKIP_EXISTING_DOCUMENTS` | Skip already indexed documents | true |
 | `FORCE_REPROCESS` | Force reprocess all documents | false |
 
+## 🔄 Incremental Processing
+
+The application supports **smart incremental processing** to avoid reprocessing files that have already been indexed in the vector store. This saves time and API costs.
+
+### How It Works
+
+1. **On startup**, the workflow queries the Milvus collection for all existing file paths
+2. **When scanning files**, both local files and GitHub repository files are checked against the existing paths
+3. **Files that already exist** are automatically skipped
+4. **Only new files** are processed, chunked, and embedded
+
+### Configuration
+
+```bash
+# Recommended: Enable incremental processing (default)
+SKIP_EXISTING_DOCUMENTS=true
+FORCE_REPROCESS=false
+
+# Full reindex: Process all files again
+SKIP_EXISTING_DOCUMENTS=false
+FORCE_REPROCESS=true
+```
+
+### Processing Modes
+
+| Mode | `SKIP_EXISTING_DOCUMENTS` | `FORCE_REPROCESS` | Behavior |
+|------|---------------------------|-------------------|----------|
+| **Incremental** ✅ | `true` | `false` | Only new files are processed (fastest) |
+| **Full Reindex** | `false` | `true` | All files reprocessed, collection recreated |
+| **Add Only** | `true` | `true` | Force ignores skip (processes all) |
+
+### Output Example
+
+```
+📊 Document Status:
+  - Total found: 150
+  - Already indexed: 145
+  - New to process: 5
+
+✅ All documents already indexed. Nothing to process!
+💡 Tip: Use FORCE_REPROCESS=true in .env to reprocess all documents
+```
+
 ## 💡 Example Usage
 
 ```python
