@@ -7,11 +7,11 @@ A production-ready Retrieval-Augmented Generation (RAG) application that process
 - **📚 GitHub Repository Integration**: Automatically clone and extract all `.md` files from any GitHub repository
 - **🌐 URL Content Processing**: Fetch and process content from web URLs including images
 - **🖼️ Google Vision API Integration**: Analyze diagrams, images, and visual content with AI-powered computer vision
-- **📊 Multi-Format Document Support**: Process images, diagrams (.drawio), Word documents (.docx), spreadsheets (.xlsx), PDFs, and PowerPoint presentations (.pptx)
+- **📊 Multi-Format Document Support**: Process 50+ file types including images, diagrams (.drawio, .excalidraw), Word documents (.docx), spreadsheets (.xlsx), PDFs, PowerPoint (.pptx), JSON, Markdown, GraphQL schemas, ODT, and source code files
 - **✂️ Intelligent Chunking**: Split documents into manageable chunks with configurable overlap using LangChain
 - **🧠 Azure OpenAI Embeddings**: Generate high-quality embeddings using Azure OpenAI's embedding models
 - **🗄️ Milvus Cloud Storage**: Efficiently store and retrieve embeddings with vector similarity search
-- **🔄 Smart Deduplication**: Skip already-indexed documents to avoid duplicate embeddings
+- **🔄 Smart Deduplication**: Automatically skip already-indexed documents to avoid duplicate embeddings and save processing time/costs
 - **🏗️ SOLID Architecture**: Clean, maintainable code following all five SOLID principles
 - **🔄 LangGraph Workflow**: State machine-based workflow orchestration for robust processing
 - **🔍 Interactive Query**: Natural language search interface to query indexed documents
