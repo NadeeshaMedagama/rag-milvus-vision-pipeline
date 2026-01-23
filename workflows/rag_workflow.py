@@ -58,6 +58,23 @@ class RAGWorkflow:
         self.url_content_reader = url_content_reader
         self.workflow = self._build_workflow()
 
+    @staticmethod
+    def _normalize_path(file_path: str) -> str:
+        """
+        Normalize a file path for consistent comparison.
+
+        Args:
+            file_path: The file path to normalize
+
+        Returns:
+            Normalized file path string
+        """
+        # Remove leading ./ and normalize path separators
+        normalized = file_path.lstrip('./')
+        # Also handle Windows-style paths if present
+        normalized = normalized.replace('\\', '/')
+        return normalized
+
     def _clone_repository(self, state: RAGState) -> RAGState:
         """Clone the repository and check for existing documents."""
         print("\n=== Step 1: Cloning Repository & Checking Existing Data ===")
@@ -126,10 +143,18 @@ class RAGWorkflow:
         try:
             local_dir = state.get("local_data_dir")
             if local_dir:
-                local_documents = self.local_file_reader.read_directory(local_dir)
+                # Get existing file paths to skip already indexed files
+                existing_paths = None
+                if state.get("skip_existing_documents") and not state.get("force_reprocess"):
+                    existing_paths = state.get("existing_file_paths", set())
+
+                local_documents = self.local_file_reader.read_directory(
+                    local_dir,
+                    existing_file_paths=existing_paths
+                )
                 # Append local documents to existing documents
                 state["documents"].extend(local_documents)
-                print(f"Processed {len(local_documents)} local files")
+                print(f"Added {len(local_documents)} new local files to process")
                 print(f"Total documents: {len(state['documents'])}")
             else:
                 print("No local data directory specified")
@@ -206,12 +231,17 @@ class RAGWorkflow:
 
             print(f"Found {len(existing_paths)} unique file paths in vector store")
 
+            # Normalize existing paths for comparison
+            normalized_existing = {self._normalize_path(p) for p in existing_paths}
+
             # Filter documents
             original_count = len(state["documents"])
             new_documents = []
 
             for doc in state["documents"]:
-                if doc.file_path not in existing_paths:
+                # Normalize the document's file path for comparison
+                normalized_doc_path = self._normalize_path(doc.file_path)
+                if normalized_doc_path not in normalized_existing:
                     new_documents.append(doc)
                 else:
                     print(f"  Skipping (already indexed): {doc.file_path}")
