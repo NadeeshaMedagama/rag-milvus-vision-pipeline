@@ -114,7 +114,7 @@ python test_setup.py
 │   ├── embedding_service.py   # Azure OpenAI embeddings
 │   ├── vector_store.py        # Milvus vector operations
 │   ├── vision_analyzer.py     # Google Vision API image analysis
-│   ├── local_file_reader.py   # Local file reading (diagrams, images, docs, PDFs, PPTs)
+│   ├── local_file_reader.py   # Local file reading (50+ formats: diagrams, images, docs, code, etc.)
 │   └── url_content_reader.py  # URL content fetching and processing
 │
 ├── workflows/                   # 🔄 LangGraph workflows
@@ -213,13 +213,20 @@ See [ARCHITECTURE.md](docs/readmes/ARCHITECTURE.md) for detailed architecture do
 
 | Category | File Types | Processing Method |
 |----------|-----------|-------------------|
-| **Markdown** | `.md` | Text extraction from GitHub |
+| **Markdown** | `.md`, `.markdown` | Text extraction with metadata |
 | **Images** | `.png`, `.jpg`, `.jpeg`, `.svg`, `.gif`, `.bmp`, `.webp` | Google Vision API analysis |
 | **Diagrams** | `.drawio` (+ `.png` exports) | XML parsing + Vision API |
+| **Excalidraw** | `.excalidraw` | JSON parsing, text element extraction |
 | **Documents** | `.docx` | Text and table extraction |
+| **OpenDocument** | `.odt` | Paragraph extraction (odfpy) |
 | **Spreadsheets** | `.xlsx`, `.xls` | Data extraction from sheets |
 | **PDF** | `.pdf` | Text and table extraction (pdfplumber) |
 | **PowerPoint** | `.pptx` | Slide text and table extraction |
+| **JSON** | `.json` | Pretty-print with structure analysis |
+| **GraphQL** | `.graphql`, `.gql` | Schema extraction with query/mutation detection |
+| **Video** | `.mp4`, `.avi`, `.mov`, `.mkv`, `.webm` | Metadata extraction (file size, path) |
+| **Text/Config** | `.txt`, `.log`, `.yml`, `.yaml`, `.xml`, `.ini`, `.cfg`, `.conf`, `.env` | Plain text extraction |
+| **Source Code** | `.py`, `.js`, `.ts`, `.java`, `.go`, `.rs`, `.c`, `.cpp`, `.h`, `.sh`, `.sql`, `.html`, `.css` | Code content extraction |
 | **URLs** | Web pages, images | HTTP fetch + Vision API for images |
 
 ## 📖 Documentation
