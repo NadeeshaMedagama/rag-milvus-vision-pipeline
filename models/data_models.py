@@ -15,6 +15,12 @@ class DocumentType(Enum):
     DRAWIO = "drawio"
     PDF = "pdf"
     POWERPOINT = "powerpoint"
+    JSON = "json"
+    GRAPHQL = "graphql"
+    ODT = "odt"
+    VIDEO = "video"
+    EXCALIDRAW = "excalidraw"
+    TEXT = "text"
 
 
 @dataclass
