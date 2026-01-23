@@ -1,7 +1,8 @@
 """Local file reader service implementation."""
 import os
 import json
-from typing import List
+import hashlib
+from typing import List, Set, Optional
 from pathlib import Path
 import docx
 import openpyxl
@@ -39,12 +40,30 @@ class LocalFileReader(ILocalFileReader):
         """
         self.vision_analyzer = vision_analyzer
 
-    def read_directory(self, directory_path: str) -> List[Document]:
+    @staticmethod
+    def normalize_path(file_path: str) -> str:
+        """
+        Normalize a file path for consistent comparison.
+
+        Args:
+            file_path: The file path to normalize
+
+        Returns:
+            Normalized file path string
+        """
+        # Convert to Path object and normalize
+        path = Path(file_path)
+        # Remove leading ./ if present and normalize
+        normalized = str(path).lstrip('./')
+        return normalized
+
+    def read_directory(self, directory_path: str, existing_file_paths: Optional[Set[str]] = None) -> List[Document]:
         """
         Read all supported files from a directory recursively.
 
         Args:
             directory_path: Path to the directory
+            existing_file_paths: Optional set of file paths already in vector store to skip
 
         Returns:
             List of Document objects
@@ -58,18 +77,41 @@ class LocalFileReader(ILocalFileReader):
 
         print(f"Scanning directory: {directory_path}")
 
+        # Normalize existing paths for comparison
+        normalized_existing = set()
+        if existing_file_paths:
+            normalized_existing = {self.normalize_path(p) for p in existing_file_paths}
+            print(f"Will skip {len(normalized_existing)} already indexed files")
+
+        skipped_count = 0
+        processed_count = 0
+
         # Walk through all files recursively
         for file_path in directory.rglob('*'):
             if file_path.is_file():
+                # Normalize the current file path
+                normalized_path = self.normalize_path(str(file_path))
+
+                # Check if file already exists in vector store
+                if normalized_path in normalized_existing:
+                    skipped_count += 1
+                    continue
+
                 try:
                     document = self.read_file(str(file_path))
                     if document:
+                        # Store with normalized path for consistent comparison
+                        document.file_path = normalized_path
                         documents.append(document)
+                        processed_count += 1
                         print(f"Processed: {file_path.name}")
                 except Exception as e:
                     print(f"Error processing {file_path}: {str(e)}")
 
-        print(f"Total files processed: {len(documents)}")
+        print(f"\n📊 Local File Processing Summary:")
+        print(f"  - Files found: {skipped_count + processed_count}")
+        print(f"  - Already indexed (skipped): {skipped_count}")
+        print(f"  - Newly processed: {processed_count}")
         return documents
 
     def read_file(self, file_path: str) -> Document:
