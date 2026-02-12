@@ -1,0 +1,159 @@
+# +required The configuration file schema version
+schemaVersion: 1.2
+
+# +optional Incoming connection details for the component
+endpoints:
+  # +required Unique name for the endpoint.
+  # This name will be used when generating the managed API
+  - name: rag-query-api
+    # +optional Display name for the endpoint.
+    displayName: RAG Query API
+    # +required Service section has the user service endpoint details
+    service:
+      # +optional Context (base path) of the API that gets exposed via the endpoint.
+      basePath: /rag
+      # +required Numeric port value that gets exposed via the endpoint
+      port: 5000
+    # +required Type of traffic that the endpoint is accepting.
+    # Allowed values: REST, GraphQL, WS, GRPC, TCP, UDP.
+    type: REST
+    # +optional Network level visibilities of the endpoint.
+    # Accepted values: Project|Organization|Public(Default).
+    networkVisibilities:
+      - Public
+      - Organization
+    # +optional Path to the schema definition file. Defaults to wild card route if not provided
+    # This is only applicable to REST or WS endpoint types.
+    # The path should be relative to the docker context.
+    schemaFilePath: .choreo/openapi.yaml
+
+# +optional Defines runtime configurations
+configurations:
+  # +optional List of environment variables to be injected into the component.
+  env:
+    # Azure OpenAI Configuration
+    - name: AZURE_OPENAI_API_KEY
+      valueFrom:
+        configForm:
+          displayName: Azure OpenAI API Key
+          required: true
+          type: secret
+    - name: AZURE_OPENAI_ENDPOINT
+      valueFrom:
+        configForm:
+          displayName: Azure OpenAI Endpoint
+          required: true
+          type: string
+    - name: AZURE_OPENAI_DEPLOYMENT_NAME
+      valueFrom:
+        configForm:
+          displayName: Azure OpenAI Deployment Name
+          required: true
+          type: string
+    - name: AZURE_OPENAI_EMBEDDING_DEPLOYMENT
+      valueFrom:
+        configForm:
+          displayName: Azure OpenAI Embedding Deployment
+          required: true
+          type: string
+    - name: AZURE_OPENAI_API_VERSION
+      valueFrom:
+        configForm:
+          displayName: Azure OpenAI API Version
+          required: false
+          type: string
+
+    # Milvus Cloud Configuration
+    - name: MILVUS_URI
+      valueFrom:
+        configForm:
+          displayName: Milvus URI
+          required: true
+          type: string
+    - name: MILVUS_TOKEN
+      valueFrom:
+        configForm:
+          displayName: Milvus Token
+          required: true
+          type: secret
+    - name: MILVUS_COLLECTION_NAME
+      valueFrom:
+        configForm:
+          displayName: Milvus Collection Name
+          required: false
+          type: string
+
+    # Google Vision API Configuration
+    - name: GOOGLE_APPLICATION_CREDENTIALS
+      valueFrom:
+        configForm:
+          displayName: Google Application Credentials Path
+          required: true
+          type: string
+    - name: GOOGLE_VISION_MAX_RESULTS
+      valueFrom:
+        configForm:
+          displayName: Google Vision Max Results
+          required: false
+          type: number
+
+    # GitHub Configuration
+    - name: GITHUB_REPO_URL
+      valueFrom:
+        configForm:
+          displayName: GitHub Repository URL
+          required: false
+          type: string
+    - name: GITHUB_TOKEN
+      valueFrom:
+        configForm:
+          displayName: GitHub Token
+          required: false
+          type: secret
+
+    # Application Configuration
+    - name: CHUNK_SIZE
+      valueFrom:
+        configForm:
+          displayName: Chunk Size
+          required: false
+          type: number
+    - name: CHUNK_OVERLAP
+      valueFrom:
+        configForm:
+          displayName: Chunk Overlap
+          required: false
+          type: number
+    - name: EMBEDDING_DIMENSION
+      valueFrom:
+        configForm:
+          displayName: Embedding Dimension
+          required: false
+          type: number
+
+    # Processing Control Configuration
+    - name: SKIP_EXISTING_DOCUMENTS
+      valueFrom:
+        configForm:
+          displayName: Skip Existing Documents
+          required: false
+          type: boolean
+    - name: FORCE_REPROCESS
+      valueFrom:
+        configForm:
+          displayName: Force Reprocess
+          required: false
+          type: boolean
+    - name: PROCESS_LOCAL_FILES
+      valueFrom:
+        configForm:
+          displayName: Process Local Files
+          required: false
+          type: boolean
+    - name: DATA_DIRECTORY
+      valueFrom:
+        configForm:
+          displayName: Data Directory
+          required: false
+          type: string
+
