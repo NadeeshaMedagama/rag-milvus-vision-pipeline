@@ -1,0 +1,376 @@
+openapi: 3.0.3
+info:
+  title: RAG Query API
+  description: |
+    REST API for the RAG (Retrieval-Augmented Generation) system with Milvus vector store.
+    This API provides endpoints for querying documents, checking system health, and retrieving statistics.
+  version: 1.0.0
+  contact:
+    name: API Support
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: /rag
+    description: Choreo deployed service
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Query
+    description: RAG query operations
+  - name: Statistics
+    description: Collection statistics and information
+
+paths:
+  /:
+    get:
+      tags:
+        - Health
+      summary: API Documentation
+      description: Returns API documentation and available endpoints
+      operationId: getApiDocumentation
+      responses:
+        '200':
+          description: API documentation retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiDocumentation'
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health Check
+      description: Check if the API service is healthy and running
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/query:
+    post:
+      tags:
+        - Query
+      summary: Query the RAG System
+      description: |
+        Submit a query to search the RAG system. The query will be embedded 
+        and searched against the vector store to find relevant documents.
+      operationId: queryRag
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+            examples:
+              simpleQuery:
+                summary: Simple query
+                value:
+                  query: "What is the architecture?"
+                  top_k: 5
+              detailedQuery:
+                summary: Query with more results
+                value:
+                  query: "How to configure alerts?"
+                  top_k: 10
+      responses:
+        '200':
+          description: Query executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryResponse'
+        '400':
+          description: Invalid request - missing or invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/stats:
+    get:
+      tags:
+        - Statistics
+      summary: Get Collection Statistics
+      description: Retrieve statistics about the Milvus collection including document count and configuration
+      operationId: getStats
+      responses:
+        '200':
+          description: Statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/test-retrieval:
+    get:
+      tags:
+        - Query
+      summary: Test Data Retrieval
+      description: |
+        Simple test endpoint to verify data retrieval is working.
+        Uses a generic query to fetch sample results from the vector store.
+      operationId: testRetrieval
+      responses:
+        '200':
+          description: Test retrieval executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestRetrievalResponse'
+        '404':
+          description: Collection does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Health status of the service
+          example: healthy
+        service:
+          type: string
+          description: Name of the service
+          example: RAG Query API
+        version:
+          type: string
+          description: API version
+          example: 1.0.0
+      required:
+        - status
+        - service
+        - version
+
+    QueryRequest:
+      type: object
+      properties:
+        query:
+          type: string
+          description: The query text to search for
+          minLength: 1
+          example: "What is the architecture?"
+        top_k:
+          type: integer
+          description: Number of results to return (1-100)
+          minimum: 1
+          maximum: 100
+          default: 5
+          example: 5
+      required:
+        - query
+
+    QueryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Whether the query was successful
+          example: true
+        query:
+          type: string
+          description: The original query text
+          example: "What is the architecture?"
+        results_count:
+          type: integer
+          description: Number of results returned
+          example: 5
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchResult'
+      required:
+        - success
+        - query
+        - results_count
+        - results
+
+    SearchResult:
+      type: object
+      properties:
+        file_path:
+          type: string
+          description: Path to the source file
+          example: "docs/architecture.md"
+        chunk_index:
+          type: integer
+          description: Index of the chunk within the document
+          example: 0
+        distance:
+          type: number
+          format: float
+          description: Distance score (lower is more similar)
+          example: 0.1234
+        content:
+          type: string
+          description: The content of the matching chunk
+          example: "This is the architecture documentation..."
+      required:
+        - file_path
+        - chunk_index
+        - distance
+        - content
+
+    StatsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Whether the request was successful
+          example: true
+        collection_exists:
+          type: boolean
+          description: Whether the collection exists
+          example: true
+        collection_name:
+          type: string
+          description: Name of the Milvus collection
+          example: "readme_embeddings"
+        total_documents:
+          type: integer
+          description: Total number of documents in the collection
+          example: 150
+        embedding_dimension:
+          type: integer
+          description: Dimension of the embeddings
+          example: 1536
+        message:
+          type: string
+          description: Additional message (e.g., if collection doesn't exist)
+          example: "Collection 'readme_embeddings' does not exist"
+      required:
+        - success
+        - collection_exists
+
+    TestRetrievalResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Whether the test was successful
+          example: true
+        message:
+          type: string
+          description: Status message
+          example: "Data retrieval is working!"
+        test_query:
+          type: string
+          description: The test query used
+          example: "architecture"
+        results_count:
+          type: integer
+          description: Number of results returned
+          example: 3
+        sample_results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SampleResult'
+      required:
+        - success
+        - message
+
+    SampleResult:
+      type: object
+      properties:
+        file_path:
+          type: string
+          description: Path to the source file
+          example: "docs/architecture.md"
+        distance:
+          type: number
+          format: float
+          description: Distance score
+          example: 0.1234
+        content_preview:
+          type: string
+          description: Preview of the content (truncated)
+          example: "This is a preview of the content..."
+      required:
+        - file_path
+        - distance
+        - content_preview
+
+    ApiDocumentation:
+      type: object
+      properties:
+        service:
+          type: string
+          description: Name of the service
+          example: "RAG Query API"
+        version:
+          type: string
+          description: API version
+          example: "1.0.0"
+        endpoints:
+          type: object
+          description: Available endpoints
+          additionalProperties:
+            type: string
+          example:
+            "GET /health": "Health check"
+            "GET /": "API documentation (this page)"
+            "GET /api/test-retrieval": "Test data retrieval from Milvus"
+            "GET /api/stats": "Get collection statistics"
+            "POST /api/query": "Query the RAG system"
+        examples:
+          type: object
+          description: Example curl commands
+          additionalProperties:
+            type: string
+      required:
+        - service
+        - version
+        - endpoints
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Always false for errors
+          example: false
+        error:
+          type: string
+          description: Error message
+          example: "Missing required field: query"
+        message:
+          type: string
+          description: Additional error details
+          example: "Please run main.py first to create and populate the collection"
+        example:
+          type: object
+          description: Example of correct usage (optional)
+          additionalProperties: true
+      required:
+        - error
+
