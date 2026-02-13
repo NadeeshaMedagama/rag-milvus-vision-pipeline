@@ -239,13 +239,13 @@ Automated dependency updates.
 
 ### Workflow Triggers
 
-| Workflow | Push | PR | Tag | Schedule | Manual |
-|----------|------|-----|-----|----------|--------|
-| CI/CD Pipeline | ✅ | ✅ | ❌ | ❌ | ✅ |
-| CodeQL Analysis | ✅ | ✅ | ❌ | ✅ Weekly | ✅ |
-| Docker Build | ✅ main | ✅ | ✅ | ❌ | ✅ |
-| Release | ❌ | ❌ | ✅ v*.*.* | ❌ | ✅ |
-| Dependency Check | ❌ | ✅ deps | ❌ | ✅ Weekly | ✅ |
+| Workflow | Push | PR | Tag | Schedule | Manual | Auto-Trigger Files |
+|----------|------|-----|-----|----------|--------|-------------------|
+| CI/CD Pipeline | ✅ main/develop | ✅ | ❌ | ❌ | ✅ | `*.py`, `requirements.txt`, `Dockerfile`, `.github/workflows/**` |
+| CodeQL Analysis | ✅ main/develop | ✅ | ❌ | ✅ Weekly | ✅ | `*.py`, `requirements.txt` |
+| Docker Build | ✅ main | ✅ | ✅ | ❌ | ✅ | `*.py`, `requirements.txt`, `Dockerfile` |
+| Release | ❌ | ❌ | ✅ v*.*.* | ❌ | ✅ | N/A |
+| Dependency Check | ✅ main/develop | ✅ deps | ❌ | ✅ Weekly | ✅ | `requirements.txt`, `pyproject.toml`, `Dockerfile` |
 
 ### Creating a Release
 
