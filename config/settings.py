@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     url_list: str = Field(default="", alias="URL_LIST")  # Comma-separated URLs or path to file
     url_file_path: str = Field(default="", alias="URL_FILE_PATH")  # Path to file containing URLs
     url_timeout: int = Field(default=30, alias="URL_TIMEOUT")
+    extract_urls_from_content: bool = Field(default=True, alias="EXTRACT_URLS_FROM_CONTENT")  # Extract URLs from document content
 
     # Processing Control Configuration
     skip_existing_documents: bool = Field(default=True, alias="SKIP_EXISTING_DOCUMENTS")
