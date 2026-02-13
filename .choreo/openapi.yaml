@@ -54,6 +54,53 @@ paths:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
 
+  /livez:
+    get:
+      tags:
+        - Health
+      summary: Liveness Probe
+      description: Ultra lightweight liveness check - confirms the application is running
+      operationId: livenessProbe
+      responses:
+        '200':
+          description: Application is alive
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: OK
+
+  /readyz:
+    get:
+      tags:
+        - Health
+      summary: Readiness Probe
+      description: Checks if the application is ready to receive traffic (services initialized)
+      operationId: readinessProbe
+      responses:
+        '200':
+          description: Application is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ready
+        '503':
+          description: Application is not ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: not ready
+                  error:
+                    type: string
+
   /api/query:
     post:
       tags:
