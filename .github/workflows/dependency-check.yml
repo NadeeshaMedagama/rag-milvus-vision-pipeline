@@ -1,0 +1,144 @@
+name: Dependency Updates Check
+
+on:
+  schedule:
+    # Run every Monday at 8:00 AM UTC
+    - cron: '0 8 * * 1'
+  pull_request:
+    paths:
+      - 'requirements.txt'
+      - 'Dockerfile'
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+jobs:
+  check-dependencies:
+    name: Check for Outdated Dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pip-audit pip-licenses
+
+    - name: Check for outdated packages
+      id: outdated
+      run: |
+        echo "## Outdated Python Packages" >> outdated_report.md
+        echo "" >> outdated_report.md
+        pip list --outdated --format=columns >> outdated_report.md || echo "All packages are up to date" >> outdated_report.md
+      continue-on-error: true
+
+    - name: Audit dependencies for vulnerabilities
+      id: audit
+      run: |
+        echo "## Security Audit Results" >> security_audit.md
+        echo "" >> security_audit.md
+        pip-audit --format=markdown >> security_audit.md || echo "No vulnerabilities found" >> security_audit.md
+      continue-on-error: true
+
+    - name: Generate license report
+      run: |
+        echo "## Dependency Licenses" >> license_report.md
+        echo "" >> license_report.md
+        pip-licenses --format=markdown --with-urls >> license_report.md
+
+    - name: Upload outdated packages report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: outdated-packages-report
+        path: outdated_report.md
+        retention-days: 30
+
+    - name: Upload security audit report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-audit-report
+        path: security_audit.md
+        retention-days: 30
+
+    - name: Upload license report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: license-report
+        path: license_report.md
+        retention-days: 90
+
+    - name: Check Python version
+      run: |
+        echo "## Python Version Information" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Current Python Version:** \`$(python --version)\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        python -m pip list >> $GITHUB_STEP_SUMMARY
+
+  check-docker-base-image:
+    name: Check Docker Base Image Updates
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Extract base image
+      id: extract
+      run: |
+        BASE_IMAGE=$(grep "^FROM" Dockerfile | head -1 | awk '{print $2}')
+        echo "BASE_IMAGE=$BASE_IMAGE" >> $GITHUB_OUTPUT
+        echo "Current base image: $BASE_IMAGE"
+
+    - name: Check for newer base image
+      run: |
+        echo "## Docker Base Image Check" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Current Base Image:** \`${{ steps.extract.outputs.BASE_IMAGE }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Check [Docker Hub](https://hub.docker.com/_/python) for the latest Python images" >> $GITHUB_STEP_SUMMARY
+
+  check-github-actions:
+    name: Check GitHub Actions Versions
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: List GitHub Actions
+      run: |
+        echo "## GitHub Actions Used" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Action | Version |" >> $GITHUB_STEP_SUMMARY
+        echo "|--------|---------|" >> $GITHUB_STEP_SUMMARY
+        grep -r "uses:" .github/workflows/*.yml | sed 's/.*uses: //' | sort -u | while read action; do
+          echo "| $action | - |" >> $GITHUB_STEP_SUMMARY
+        done
+
+  dependency-review:
+    name: Dependency Review (PR only)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Dependency Review
+      uses: actions/dependency-review-action@v4
+      with:
+        fail-on-severity: moderate
+        allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Python-2.0
+
