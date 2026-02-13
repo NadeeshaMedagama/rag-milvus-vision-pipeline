@@ -27,6 +27,27 @@ endpoints:
     # The path should be relative to the docker context.
     schemaFilePath: .choreo/openapi.yaml
 
+# +optional Health probe configuration
+probes:
+  # Liveness probe - checks if the container is running
+  liveness:
+    httpGet:
+      path: /livez
+      port: 5000
+    initialDelaySeconds: 10
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+  # Readiness probe - checks if the container is ready to receive traffic
+  readiness:
+    httpGet:
+      path: /health
+      port: 5000
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 3
+
 # +optional Defines runtime configurations
 configurations:
   # +optional List of environment variables to be injected into the component.
