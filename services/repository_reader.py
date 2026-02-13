@@ -4,7 +4,6 @@ import tempfile
 import shutil
 from typing import List
 from pathlib import Path
-import git
 
 from interfaces import IRepositoryReader
 from models import Document
@@ -36,6 +35,10 @@ class GitHubRepositoryReader(IRepositoryReader):
         if not repo_url or repo_url.strip() == "":
             print("No repository URL provided - skipping repository cloning")
             return ""
+
+        # Lazy import git to avoid ImportError when git executable is not available
+        # This allows the module to be imported even if git is not installed
+        import git
 
         temp_dir = tempfile.mkdtemp(prefix="rag_repo_")
 
