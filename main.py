@@ -53,7 +53,7 @@ def main():
     local_file_reader = None
     url_content_reader = None
 
-    if settings.process_local_files or settings.process_urls:
+    if settings.process_local_files or settings.process_urls or settings.extract_urls_from_content:
         try:
             print("Initializing Google Vision API service...")
             vision_analyzer = GoogleVisionAnalyzer(
@@ -69,7 +69,8 @@ def main():
                 print("✓ Google Vision API and Local File Reader initialized")
 
             # URL content reader service (uses Vision API for image URLs)
-            if settings.process_urls:
+            # Enable if process_urls is true OR if extract_urls_from_content is true
+            if settings.process_urls or settings.extract_urls_from_content:
                 url_content_reader = URLContentReader(
                     vision_analyzer=vision_analyzer,
                     timeout=settings.url_timeout
@@ -110,7 +111,8 @@ def main():
         force_reprocess=settings.force_reprocess,
         process_urls=settings.process_urls,
         urls=urls_to_process,
-        url_file_path=settings.url_file_path
+        url_file_path=settings.url_file_path,
+        extract_urls_from_content=settings.extract_urls_from_content
     )
 
     # Display results
