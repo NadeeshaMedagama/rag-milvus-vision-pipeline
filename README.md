@@ -6,6 +6,7 @@ A production-ready Retrieval-Augmented Generation (RAG) application that process
 
 - **📚 GitHub Repository Integration**: Automatically clone and extract all `.md` files from any GitHub repository
 - **🌐 URL Content Processing**: Fetch and process content from web URLs including images
+- **🔗 Automatic URL Extraction**: Detect and process URLs found within document content (PDFs, Word docs, etc.)
 - **🖼️ Google Vision API Integration**: Analyze diagrams, images, and visual content with AI-powered computer vision
 - **📊 Multi-Format Document Support**: Process 50+ file types including images, diagrams (.drawio, .excalidraw), Word documents (.docx), spreadsheets (.xlsx), PDFs, PowerPoint (.pptx), JSON, Markdown, GraphQL schemas, ODT, and source code files
 - **✂️ Intelligent Chunking**: Split documents into manageable chunks with configurable overlap using LangChain
@@ -65,6 +66,9 @@ DATA_DIRECTORY=./data/diagrams
 PROCESS_URLS=false
 URL_LIST=https://example.com/doc1,https://example.com/doc2
 URL_FILE_PATH=./urls.txt
+
+# URL Extraction from Document Content (enabled by default)
+EXTRACT_URLS_FROM_CONTENT=true
 
 # Processing Control
 SKIP_EXISTING_DOCUMENTS=true
@@ -184,6 +188,13 @@ See [ARCHITECTURE.md](docs/readmes/ARCHITECTURE.md) for detailed architecture do
            │
            ▼
 ┌─────────────────────┐
+│ Extract URLs from   │ ◄── Scan Document Content
+│ Document Content    │     • Find embedded URLs
+│ (PDFs/Docs/etc.)    │     • Fetch URL content
+└──────────┬──────────┘     • Add to documents
+           │
+           ▼
+┌─────────────────────┐
 │ Filter Existing     │ ◄── Skip Already Indexed
 │    Documents        │
 └──────────┬──────────┘
@@ -249,8 +260,53 @@ See [ARCHITECTURE.md](docs/readmes/ARCHITECTURE.md) for detailed architecture do
 | `URL_LIST` | Comma-separated URLs to process | "" |
 | `URL_FILE_PATH` | Path to file containing URLs | "" |
 | `URL_TIMEOUT` | Timeout for URL fetching (seconds) | 30 |
+| `EXTRACT_URLS_FROM_CONTENT` | Extract and process URLs from document content | true |
 | `SKIP_EXISTING_DOCUMENTS` | Skip already indexed documents | true |
 | `FORCE_REPROCESS` | Force reprocess all documents | false |
+
+## 🔗 Automatic URL Extraction from Document Content
+
+The application can automatically detect and process URLs found within your document content. This is especially useful when:
+
+- **PDFs contain reference links** to external documentation
+- **Word documents have embedded URLs** to related resources
+- **Markdown files link to external content** you want to index
+
+### How It Works
+
+1. **During processing**, the workflow scans all document content for URLs
+2. **URLs are extracted** using pattern matching (http/https links, markdown links, etc.)
+3. **Each URL is fetched** and its content is processed
+4. **Content is added** to the vector database alongside the original documents
+
+### Configuration
+
+```bash
+# Enable/disable URL extraction (enabled by default)
+EXTRACT_URLS_FROM_CONTENT=true
+```
+
+### Example
+
+If your PDF contains text like:
+```
+For more information, see https://docs.example.com/api-reference
+```
+
+The system will:
+1. Extract the URL `https://docs.example.com/api-reference`
+2. Fetch the content from that URL
+3. Store the URL's content in Milvus
+4. Link it back to the original document that contained the URL
+
+### Supported URL Types
+
+| URL Type | Processing |
+|----------|------------|
+| Web pages (HTML) | Text extraction with BeautifulSoup |
+| Images | Google Vision API analysis |
+| JSON APIs | JSON content indexing |
+| Plain text/Markdown | Direct text extraction |
 
 ## 🔄 Incremental Processing
 
