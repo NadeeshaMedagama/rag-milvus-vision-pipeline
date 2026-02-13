@@ -100,6 +100,11 @@ class MilvusVectorStore(IVectorStore):
         Args:
             embedded_chunks: List of embedded chunks to insert
         """
+        # Validate input
+        if not embedded_chunks:
+            print("⚠️  No embedded chunks to insert, skipping...")
+            return
+
         if not self.collection:
             self.collection = Collection(self.collection_name)
 
@@ -108,9 +113,29 @@ class MilvusVectorStore(IVectorStore):
         field_names = [field.name for field in schema.fields]
 
         print(f"Collection schema fields: {field_names}")
+        print(f"Number of chunks to insert: {len(embedded_chunks)}")
+
+        # Validate embedded chunks have required data
+        for i, ec in enumerate(embedded_chunks):
+            if ec.embedding is None:
+                raise ValueError(f"Chunk {i} has no embedding")
+            if ec.chunk is None:
+                raise ValueError(f"Chunk {i} has no chunk data")
 
         # Prepare embeddings data
         embeddings = [ec.embedding for ec in embedded_chunks]
+
+        # Prepare metadata fields (with safe defaults)
+        contents = []
+        file_paths = []
+        repository_urls = []
+        chunk_indices = []
+
+        for ec in embedded_chunks:
+            contents.append((ec.chunk.content or "")[:65535])  # Truncate if needed
+            file_paths.append(ec.chunk.source_file_path or "")
+            repository_urls.append(ec.chunk.repository_url or "")
+            chunk_indices.append(ec.chunk.chunk_index if ec.chunk.chunk_index is not None else 0)
 
         # Build data list based on actual schema fields
         data = []
@@ -140,23 +165,30 @@ class MilvusVectorStore(IVectorStore):
                 elif field.dtype == DataType.FLOAT_VECTOR:
                     # This is the vector/embedding field
                     data.append(embeddings)
+                elif field.dtype == DataType.VARCHAR:
+                    # Unknown VARCHAR field - provide empty strings
+                    print(f"⚠️  Unknown VARCHAR field in schema: {field.name}")
+                    data.append(["" for _ in embedded_chunks])
+                elif field.dtype == DataType.INT64:
+                    # Unknown INT64 field - provide zeros
+                    print(f"⚠️  Unknown INT64 field in schema: {field.name}")
+                    data.append([0 for _ in embedded_chunks])
                 else:
-                    # Unknown field - log warning and try to provide empty/default data
-                    print(f"⚠️  Unknown field in schema: {field.name} (type: {field.dtype})")
-                    if field.dtype == DataType.VARCHAR:
+                    # Unknown field type - log warning but still try to provide data
+                    print(f"⚠️  Unknown field type in schema: {field.name} (type: {field.dtype})")
+                    # Try to provide default based on type
+                    if "VARCHAR" in str(field.dtype):
                         data.append(["" for _ in embedded_chunks])
-                    elif field.dtype == DataType.INT64:
+                    elif "INT" in str(field.dtype) or "FLOAT" in str(field.dtype):
                         data.append([0 for _ in embedded_chunks])
+                    else:
+                        print(f"❌ Cannot handle field type: {field.dtype}")
+                        raise ValueError(f"Unsupported field type: {field.name} ({field.dtype})")
         else:
             # New schema: id, embedding, content, file_path, repository_url, chunk_index
-            contents = [ec.chunk.content[:65535] for ec in embedded_chunks]  # Truncate if needed
-            file_paths = [ec.chunk.source_file_path for ec in embedded_chunks]
-            repository_urls = [ec.chunk.repository_url for ec in embedded_chunks]
-            chunk_indices = [ec.chunk.chunk_index for ec in embedded_chunks]
-
             # Build data list based on actual schema fields (excluding auto_id primary key)
             for field in schema.fields:
-                if field.name == "id" and field.auto_id:
+                if field.is_primary and field.auto_id:
                     continue  # Skip auto-generated ID field
                 elif field.name == "embedding" or field.name == "vector":
                     data.append(embeddings)
@@ -168,10 +200,59 @@ class MilvusVectorStore(IVectorStore):
                     data.append(repository_urls)
                 elif field.name == "chunk_index":
                     data.append(chunk_indices)
+                elif field.dtype == DataType.FLOAT_VECTOR:
+                    # Fallback for vector field with different name
+                    data.append(embeddings)
+                elif field.dtype == DataType.VARCHAR:
+                    # Unknown VARCHAR field - provide empty strings
+                    print(f"⚠️  Unknown VARCHAR field in schema: {field.name}")
+                    data.append(["" for _ in embedded_chunks])
+                elif field.dtype == DataType.INT64:
+                    # Unknown INT64 field - provide zeros
+                    print(f"⚠️  Unknown INT64 field in schema: {field.name}")
+                    data.append([0 for _ in embedded_chunks])
+                else:
+                    # Handle any other fields with defaults
+                    print(f"⚠️  Unhandled field in schema: {field.name} (type: {field.dtype})")
+                    if "VARCHAR" in str(field.dtype):
+                        data.append(["" for _ in embedded_chunks])
+                    elif "INT" in str(field.dtype) or "FLOAT" in str(field.dtype):
+                        data.append([0 for _ in embedded_chunks])
+                    else:
+                        print(f"❌ Cannot handle field type: {field.dtype}")
+                        raise ValueError(f"Unsupported field type: {field.name} ({field.dtype})")
 
-        self.collection.insert(data)
-        self.collection.flush()
-        print(f"Inserted {len(embedded_chunks)} embeddings into Milvus")
+        # Validate data before insert
+        if not data:
+            raise ValueError("No data prepared for insertion - schema mismatch")
+
+        expected_fields = len([f for f in schema.fields if not (f.is_primary and f.auto_id)])
+        if len(data) != expected_fields:
+            print(f"⚠️  Warning: Data list count ({len(data)}) doesn't match expected fields ({expected_fields})")
+            print(f"   Schema fields: {field_names}")
+            print(f"   Data lists prepared: {len(data)}")
+            # Raise error instead of just warning - this will cause insert to fail
+            raise ValueError(f"Data field count mismatch: got {len(data)}, expected {expected_fields}")
+
+        # Validate all data lists have the same length
+        for i, d in enumerate(data):
+            if len(d) != len(embedded_chunks):
+                raise ValueError(f"Data list {i} has {len(d)} items, expected {len(embedded_chunks)}")
+
+        print(f"Inserting {len(embedded_chunks)} embeddings with {len(data)} data fields...")
+
+        try:
+            self.collection.insert(data)
+            self.collection.flush()
+            print(f"✅ Inserted {len(embedded_chunks)} embeddings into Milvus")
+        except Exception as e:
+            print(f"❌ Insert failed: {str(e)}")
+            print(f"   Debug info:")
+            print(f"   - Number of embedded chunks: {len(embedded_chunks)}")
+            print(f"   - Number of data lists: {len(data)}")
+            print(f"   - Length of each data list: {[len(d) for d in data]}")
+            print(f"   - Schema fields (non-auto): {[f.name for f in schema.fields if not (f.is_primary and f.auto_id)]}")
+            raise
 
     def search(self, query_embedding: List[float], top_k: int = 5) -> List[dict]:
         """
