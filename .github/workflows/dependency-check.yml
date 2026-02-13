@@ -1,12 +1,21 @@
 name: Dependency Updates Check
 
 on:
+  push:
+    branches: [ master, develop ]
+    paths:
+      - 'requirements.txt'
+      - 'pyproject.toml'
+      - 'Dockerfile'
+      - '.github/workflows/dependency-check.yml'
+      - '.github/dependabot.yml'
   schedule:
     # Run every Monday at 8:00 AM UTC
     - cron: '0 8 * * 1'
   pull_request:
     paths:
       - 'requirements.txt'
+      - 'pyproject.toml'
       - 'Dockerfile'
       - '.github/workflows/**'
   workflow_dispatch:
