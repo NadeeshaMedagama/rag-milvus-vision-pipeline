@@ -106,8 +106,11 @@ python test_setup.py
 ### Pull Pre-built Image
 
 ```bash
-# Pull the latest image from GitHub Container Registry
-docker pull ghcr.io/YOUR_USERNAME/pythin_rag_with_milvus:latest
+# Option 1: Pull from Docker Hub
+docker pull YOUR_DOCKERHUB_USERNAME/rag-milvus-vision-pipeline:latest
+
+# Option 2: Pull from GitHub Container Registry
+docker pull ghcr.io/YOUR_USERNAME/rag-milvus-vision-pipeline:latest
 
 # Run the container
 docker run -d -p 5000:5000 \
@@ -116,7 +119,7 @@ docker run -d -p 5000:5000 \
   -e AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/ \
   -e MILVUS_URI=https://your-instance.cloud.milvus.io:19530 \
   -e MILVUS_TOKEN=your_token \
-  ghcr.io/YOUR_USERNAME/pythin_rag_with_milvus:latest
+  YOUR_DOCKERHUB_USERNAME/rag-milvus-vision-pipeline:latest
 ```
 
 ### Build Locally
@@ -179,11 +182,15 @@ Runs on main branch pushes and version tags.
 
 **Features:**
 - 🐳 Multi-platform builds (linux/amd64, linux/arm64)
-- 📦 Publishes to GitHub Container Registry (ghcr.io)
+- 📦 Publishes to **Docker Hub** and GitHub Container Registry (ghcr.io)
 - 🏷️ Semantic versioning with tags
 - 🔒 Image vulnerability scanning with Trivy
 - 📋 SBOM (Software Bill of Materials) generation
 - 💾 Build cache optimization
+
+**Required Secrets:**
+- `DOCKER_USERNAME` - Your Docker Hub username
+- `DOCKER_PASSWORD` - Your Docker Hub password or access token
 
 #### 4. **Release Management** (`.github/workflows/release.yml`)
 Triggered on version tags (v*.*.*) or manual dispatch.
@@ -221,6 +228,8 @@ Automated dependency updates.
 
 2. **Configure Secrets** (Settings → Secrets and variables → Actions):
    - `GITHUB_TOKEN` is automatically provided
+   - `DOCKER_USERNAME` - Your Docker Hub username
+   - `DOCKER_PASSWORD` - Your Docker Hub password or access token
    - Add any additional secrets needed for your deployment
 
 3. **Enable GitHub Container Registry**:
@@ -229,13 +238,14 @@ Automated dependency updates.
 
 4. **Enable Security Features**:
    - Go to Settings → Security → Code security and analysis
-   - Enable "Dependency graph"
+   - Enable "Dependency graph" (required for dependency review)
    - Enable "Dependabot alerts"
    - Enable "Dependabot security updates"
    - Enable "CodeQL analysis"
 
 5. **Update Badge URLs** in README.md:
    - Replace `YOUR_USERNAME` with your GitHub username
+   - Replace `YOUR_DOCKERHUB_USERNAME` with your Docker Hub username
 
 ### Workflow Triggers
 
