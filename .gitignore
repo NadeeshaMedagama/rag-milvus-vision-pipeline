@@ -51,3 +51,18 @@ env/
 temp/
 tmp/
 
+# CI/CD artifacts
+*.sarif
+bandit-report.json
+safety-report.json
+coverage.xml
+htmlcov/
+.coverage
+.pytest_cache/
+trivy-report.json
+trivy-results.sarif
+sbom.spdx.json
+outdated_report.md
+security_audit.md
+license_report.md
+sarif-results/
