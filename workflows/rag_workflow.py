@@ -17,6 +17,7 @@ class RAGState(TypedDict):
     url_file_path: str
     skip_existing_documents: bool
     force_reprocess: bool
+    extract_urls_from_content: bool
     documents: List[Document]
     chunks: List[Chunk]
     embedded_chunks: List[EmbeddedChunk]
@@ -25,6 +26,7 @@ class RAGState(TypedDict):
     existing_file_paths: set
     skipped_count: int
     new_count: int
+    extracted_url_count: int
 
 
 class RAGWorkflow:
@@ -196,6 +198,58 @@ class RAGWorkflow:
         except Exception as e:
             # Don't fail the entire workflow if URL processing fails
             print(f"Warning: Failed to process URLs: {str(e)}")
+
+        return state
+
+    def _extract_urls_from_content(self, state: RAGState) -> RAGState:
+        """Extract URLs found within document content and process them."""
+        print("\n=== Step 3c: Extracting URLs from Document Content ===")
+        if state.get("error"):
+            return state
+
+        if not state.get("extract_urls_from_content") or not self.url_content_reader:
+            print("Skipping URL extraction from content (disabled or not configured)")
+            state["extracted_url_count"] = 0
+            return state
+
+        try:
+            documents = state.get("documents", [])
+            if not documents:
+                print("No documents to scan for URLs")
+                state["extracted_url_count"] = 0
+                return state
+
+            # Get already processed URLs (file_paths that are URLs)
+            existing_urls = set()
+            for doc in documents:
+                if doc.file_path.startswith("http://") or doc.file_path.startswith("https://"):
+                    existing_urls.add(doc.file_path)
+
+            # Also add existing file paths from vector store
+            existing_file_paths = state.get("existing_file_paths", set())
+            for path in existing_file_paths:
+                if path.startswith("http://") or path.startswith("https://"):
+                    existing_urls.add(path)
+
+            # Extract and process URLs from document content
+            url_documents = self.url_content_reader.extract_and_process_urls_from_documents(
+                documents,
+                existing_urls=existing_urls
+            )
+
+            if url_documents:
+                state["documents"].extend(url_documents)
+                state["extracted_url_count"] = len(url_documents)
+                print(f"Added {len(url_documents)} documents from extracted URLs")
+                print(f"Total documents: {len(state['documents'])}")
+            else:
+                state["extracted_url_count"] = 0
+                print("No new URLs extracted from document content")
+
+        except Exception as e:
+            # Don't fail the entire workflow if URL extraction fails
+            print(f"Warning: Failed to extract URLs from content: {str(e)}")
+            state["extracted_url_count"] = 0
 
         return state
 
@@ -372,6 +426,7 @@ class RAGWorkflow:
         workflow.add_node("extract_documents", self._extract_documents)
         workflow.add_node("process_local_files", self._process_local_files)
         workflow.add_node("process_urls", self._process_urls)
+        workflow.add_node("extract_urls_from_content", self._extract_urls_from_content)
         workflow.add_node("filter_existing_documents", self._filter_existing_documents)
         workflow.add_node("chunk_documents", self._chunk_documents)
         workflow.add_node("create_embeddings", self._create_embeddings)
@@ -383,7 +438,8 @@ class RAGWorkflow:
         workflow.add_edge("clone_repository", "extract_documents")
         workflow.add_edge("extract_documents", "process_local_files")
         workflow.add_edge("process_local_files", "process_urls")
-        workflow.add_edge("process_urls", "filter_existing_documents")
+        workflow.add_edge("process_urls", "extract_urls_from_content")
+        workflow.add_edge("extract_urls_from_content", "filter_existing_documents")
         workflow.add_edge("filter_existing_documents", "chunk_documents")
         workflow.add_edge("chunk_documents", "create_embeddings")
         workflow.add_edge("create_embeddings", "store_embeddings")
@@ -401,7 +457,8 @@ class RAGWorkflow:
         force_reprocess: bool = False,
         process_urls: bool = False,
         urls: List[str] = None,
-        url_file_path: str = ""
+        url_file_path: str = "",
+        extract_urls_from_content: bool = True
     ) -> RAGState:
         """
         Run the RAG workflow.
@@ -415,6 +472,7 @@ class RAGWorkflow:
             process_urls: Whether to process URLs
             urls: List of URLs to process
             url_file_path: Path to file containing URLs
+            extract_urls_from_content: Whether to extract and process URLs found in document content
 
         Returns:
             Final state of the workflow
@@ -429,6 +487,7 @@ class RAGWorkflow:
             "url_file_path": url_file_path,
             "skip_existing_documents": skip_existing_documents,
             "force_reprocess": force_reprocess,
+            "extract_urls_from_content": extract_urls_from_content,
             "documents": [],
             "chunks": [],
             "embedded_chunks": [],
@@ -436,7 +495,8 @@ class RAGWorkflow:
             "status": "initialized",
             "existing_file_paths": set(),
             "skipped_count": 0,
-            "new_count": 0
+            "new_count": 0,
+            "extracted_url_count": 0
         }
 
         print(f"\n{'='*60}")
@@ -448,6 +508,8 @@ class RAGWorkflow:
         if process_urls:
             url_count = len(urls) if urls else 0
             print(f"URLs to process: {url_count} from config" + (f" + file: {url_file_path}" if url_file_path else ""))
+        if extract_urls_from_content:
+            print(f"URL extraction: ENABLED (will extract and process URLs from document content)")
         if force_reprocess:
             print(f"Mode: FORCE REPROCESS (will process all documents)")
         elif skip_existing_documents:
@@ -474,6 +536,8 @@ class RAGWorkflow:
             print(f"   - Total documents found: {final_state.get('skipped_count', 0) + final_state.get('new_count', 0)}")
             print(f"   - Already indexed (skipped): {final_state.get('skipped_count', 0)}")
             print(f"   - Newly processed: {final_state.get('new_count', 0)}")
+            if final_state.get('extracted_url_count', 0) > 0:
+                print(f"   - URLs extracted from content: {final_state.get('extracted_url_count', 0)}")
             print(f"   - Chunks created: {len(final_state['chunks'])}")
             print(f"   - Embeddings stored: {len(final_state['embedded_chunks'])}")
 
