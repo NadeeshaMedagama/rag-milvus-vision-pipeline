@@ -73,6 +73,23 @@ def health_check():
     })
 
 
+@app.route('/livez', methods=['GET'])
+def liveness():
+    """Liveness probe - ultra lightweight, just confirms app is running."""
+    return 'OK', 200
+
+
+@app.route('/readyz', methods=['GET'])
+def readiness():
+    """Readiness probe - checks if services can be initialized."""
+    try:
+        # Try to initialize services
+        get_vector_store()
+        return jsonify({'status': 'ready'}), 200
+    except Exception as e:
+        return jsonify({'status': 'not ready', 'error': str(e)}), 503
+
+
 @app.route('/api/query', methods=['POST'])
 def query():
     """
