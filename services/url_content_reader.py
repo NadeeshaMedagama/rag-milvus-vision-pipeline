@@ -1,7 +1,7 @@
 """URL content reader service implementation."""
 import os
 import re
-from typing import List, Optional
+from typing import List, Optional, Set
 from urllib.parse import urlparse, unquote
 import requests
 
@@ -277,3 +277,121 @@ class URLContentReader:
         except Exception as e:
             print(f"Error reading URLs from file {file_path}: {str(e)}")
             return []
+
+    def extract_urls_from_text(self, text: str) -> List[str]:
+        """
+        Extract all URLs from text content (not just images).
+
+        Args:
+            text: Text content that may contain URLs
+
+        Returns:
+            List of URLs found
+        """
+        # General URL pattern to match http and https URLs
+        url_pattern = r'https?://[^\s<>"\')\]]+[^\s<>"\')\].,;:!?]'
+
+        # Also match URLs in markdown link syntax [text](url)
+        markdown_link_pattern = r'\[.*?\]\((https?://[^\s\)]+)\)'
+
+        # Match URLs in angle brackets <url>
+        angle_bracket_pattern = r'<(https?://[^>]+)>'
+
+        urls = set()
+
+        # Find direct URLs
+        for url in re.findall(url_pattern, text, re.IGNORECASE):
+            # Clean up trailing punctuation that might be captured
+            url = url.rstrip('.,;:!?')
+            urls.add(url)
+
+        # Find markdown link URLs
+        urls.update(re.findall(markdown_link_pattern, text))
+
+        # Find URLs in angle brackets
+        urls.update(re.findall(angle_bracket_pattern, text))
+
+        return list(urls)
+
+    def extract_and_process_urls_from_documents(
+        self,
+        documents: List[Document],
+        existing_urls: Optional[Set[str]] = None
+    ) -> List[Document]:
+        """
+        Extract URLs from document content and process them.
+
+        This method scans through document content, extracts any URLs found,
+        fetches the content from those URLs, and returns Document objects
+        for each URL.
+
+        Args:
+            documents: List of documents to scan for URLs
+            existing_urls: Optional set of already processed URLs to skip
+
+        Returns:
+            List of Document objects containing URL content
+        """
+        if existing_urls is None:
+            existing_urls = set()
+
+        all_urls = set()
+        url_sources = {}  # Track which document each URL came from
+
+        print("\n🔍 Scanning documents for embedded URLs...")
+
+        for doc in documents:
+            if doc.content:
+                found_urls = self.extract_urls_from_text(doc.content)
+                for url in found_urls:
+                    if url not in existing_urls and url not in all_urls:
+                        all_urls.add(url)
+                        url_sources[url] = doc.file_path
+
+        if not all_urls:
+            print("  No new URLs found in document content")
+            return []
+
+        print(f"  Found {len(all_urls)} unique URLs in documents")
+
+        # Process the extracted URLs
+        url_documents = []
+        for url in all_urls:
+            try:
+                document = self.read_url(url)
+                if document:
+                    # Add metadata about where the URL was found
+                    if document.metadata is None:
+                        document.metadata = {}
+                    document.metadata["extracted_from"] = url_sources.get(url, "unknown")
+                    document.metadata["extraction_type"] = "auto_extracted"
+                    url_documents.append(document)
+                    print(f"  ✓ Processed: {url[:80]}...")
+            except Exception as e:
+                print(f"  ✗ Error processing {url}: {str(e)}")
+
+        print(f"  Total URLs successfully processed: {len(url_documents)}")
+        return url_documents
+
+    def is_valid_url(self, url: str) -> bool:
+        """
+        Check if a URL is valid and accessible.
+
+        Args:
+            url: URL to validate
+
+        Returns:
+            True if URL is valid and accessible
+        """
+        try:
+            parsed = urlparse(url)
+            # Must have scheme and netloc
+            if not parsed.scheme or not parsed.netloc:
+                return False
+
+            # Check if URL is reachable with a HEAD request
+            response = requests.head(url, timeout=5, allow_redirects=True)
+            return response.status_code < 400
+        except Exception:
+            return False
+
