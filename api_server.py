@@ -64,6 +64,7 @@ def get_query_service():
 
 
 @app.route('/health', methods=['GET'])
+@app.route('/rag/health', methods=['GET'])
 def health_check():
     """Health check endpoint - responds immediately without initializing services."""
     return jsonify({
@@ -74,23 +75,45 @@ def health_check():
 
 
 @app.route('/livez', methods=['GET'])
+@app.route('/rag/livez', methods=['GET'])
 def liveness():
     """Liveness probe - ultra lightweight, just confirms app is running."""
     return 'OK', 200
 
 
 @app.route('/readyz', methods=['GET'])
+@app.route('/rag/readyz', methods=['GET'])
 def readiness():
     """Readiness probe - checks if services can be initialized."""
+    import signal
+
+    class TimeoutError(Exception):
+        pass
+
+    def timeout_handler(signum, frame):
+        raise TimeoutError("Readiness check timed out")
+
     try:
-        # Try to initialize services
-        get_vector_store()
-        return jsonify({'status': 'ready'}), 200
+        # Set a 10-second timeout for the readiness check
+        old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(10)  # 10 second timeout
+
+        try:
+            # Try to initialize services
+            get_vector_store()
+            return jsonify({'status': 'ready'}), 200
+        finally:
+            signal.alarm(0)  # Cancel the alarm
+            signal.signal(signal.SIGALRM, old_handler)  # Restore old handler
+
+    except TimeoutError as e:
+        return jsonify({'status': 'not ready', 'error': 'Connection timeout'}), 503
     except Exception as e:
         return jsonify({'status': 'not ready', 'error': str(e)}), 503
 
 
 @app.route('/api/query', methods=['POST'])
+@app.route('/rag/api/query', methods=['POST'])
 def query():
     """
     Query the RAG system.
@@ -140,6 +163,7 @@ def query():
 
 
 @app.route('/api/stats', methods=['GET'])
+@app.route('/rag/api/stats', methods=['GET'])
 def stats():
     """Get collection statistics."""
     try:
@@ -179,6 +203,7 @@ def stats():
 
 
 @app.route('/api/test-retrieval', methods=['GET'])
+@app.route('/rag/api/test-retrieval', methods=['GET'])
 def test_retrieval():
     """
     Simple test endpoint to verify data retrieval is working.
@@ -232,6 +257,7 @@ def test_retrieval():
 
 
 @app.route('/', methods=['GET'])
+@app.route('/rag/', methods=['GET'])
 def index():
     """API documentation."""
     return jsonify({
