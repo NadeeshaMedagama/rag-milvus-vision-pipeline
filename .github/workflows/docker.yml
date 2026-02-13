@@ -2,11 +2,20 @@ name: Docker Build & Publish
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
+    paths:
+      - '**.py'
+      - 'requirements.txt'
+      - 'Dockerfile'
+      - '.github/workflows/docker.yml'
     tags:
       - 'v*.*.*'
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
+    paths:
+      - '**.py'
+      - 'requirements.txt'
+      - 'Dockerfile'
   workflow_dispatch:
 
 env:
