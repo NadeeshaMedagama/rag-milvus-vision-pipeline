@@ -1,39 +1,71 @@
 """Simple REST API for testing Milvus data retrieval."""
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from config import get_settings
-from services import AzureOpenAIEmbeddingService, MilvusVectorStore
-from query import RAGQueryService
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
-# Initialize services
-settings = get_settings()
+# Lazy initialization - services will be initialized on first use
+_embedding_service = None
+_vector_store = None
+_query_service = None
+_settings = None
 
-embedding_service = AzureOpenAIEmbeddingService(
-    api_key=settings.azure_openai_api_key,
-    endpoint=settings.azure_openai_endpoint,
-    deployment_name=settings.azure_openai_embedding_deployment,
-    api_version=settings.azure_openai_api_version
-)
 
-vector_store = MilvusVectorStore(
-    uri=settings.milvus_uri,
-    token=settings.milvus_token,
-    collection_name=settings.milvus_collection_name,
-    embedding_dimension=settings.embedding_dimension
-)
+def get_app_settings():
+    """Get settings (lazy loaded)."""
+    global _settings
+    if _settings is None:
+        from config import get_settings
+        _settings = get_settings()
+    return _settings
 
-query_service = RAGQueryService(
-    embedding_service=embedding_service,
-    vector_store=vector_store
-)
+
+def get_embedding_service():
+    """Get embedding service (lazy initialized)."""
+    global _embedding_service
+    if _embedding_service is None:
+        from services import AzureOpenAIEmbeddingService
+        settings = get_app_settings()
+        _embedding_service = AzureOpenAIEmbeddingService(
+            api_key=settings.azure_openai_api_key,
+            endpoint=settings.azure_openai_endpoint,
+            deployment_name=settings.azure_openai_embedding_deployment,
+            api_version=settings.azure_openai_api_version
+        )
+    return _embedding_service
+
+
+def get_vector_store():
+    """Get vector store (lazy initialized)."""
+    global _vector_store
+    if _vector_store is None:
+        from services import MilvusVectorStore
+        settings = get_app_settings()
+        _vector_store = MilvusVectorStore(
+            uri=settings.milvus_uri,
+            token=settings.milvus_token,
+            collection_name=settings.milvus_collection_name,
+            embedding_dimension=settings.embedding_dimension
+        )
+    return _vector_store
+
+
+def get_query_service():
+    """Get query service (lazy initialized)."""
+    global _query_service
+    if _query_service is None:
+        from query import RAGQueryService
+        _query_service = RAGQueryService(
+            embedding_service=get_embedding_service(),
+            vector_store=get_vector_store()
+        )
+    return _query_service
 
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    """Health check endpoint."""
+    """Health check endpoint - responds immediately without initializing services."""
     return jsonify({
         'status': 'healthy',
         'service': 'RAG Query API',
@@ -74,8 +106,8 @@ def query():
             }), 400
         
         # Perform search
-        results = query_service.query(query_text, top_k=top_k)
-        
+        results = get_query_service().query(query_text, top_k=top_k)
+
         return jsonify({
             'success': True,
             'query': query_text,
@@ -94,6 +126,8 @@ def query():
 def stats():
     """Get collection statistics."""
     try:
+        settings = get_app_settings()
+        vector_store = get_vector_store()
         collection_exists = vector_store.collection_exists()
         
         if not collection_exists:
@@ -134,6 +168,10 @@ def test_retrieval():
     Uses a generic query to fetch some results.
     """
     try:
+        settings = get_app_settings()
+        vector_store = get_vector_store()
+        query_service = get_query_service()
+
         # Check if collection exists
         if not vector_store.collection_exists():
             return jsonify({
@@ -198,6 +236,7 @@ def index():
 
 
 if __name__ == '__main__':
+    settings = get_app_settings()
     print("\n" + "="*80)
     print("🚀 Starting RAG Query API Server")
     print("="*80)
