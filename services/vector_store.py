@@ -1,4 +1,5 @@
 """Milvus Cloud vector store implementation."""
+import time
 from typing import List
 from pymilvus import (
     connections,
@@ -121,18 +122,31 @@ class MilvusVectorStore(IVectorStore):
             print("⚠️  To use new schema with metadata, set FORCE_REPROCESS=true in .env")
 
             # For old schema, we need to match the field order and names exactly
+            # Count non-auto-id fields to determine expected data lists
+            non_auto_fields = [f for f in schema.fields if not (f.is_primary and f.auto_id)]
+            print(f"Non-auto fields requiring data: {[f.name for f in non_auto_fields]}")
+
             for field in schema.fields:
-                if field.name == "id":
-                    if field.auto_id:
-                        continue  # Skip auto-generated ID
-                    else:
-                        # If ID is not auto-generated, we need to provide IDs
-                        # This shouldn't happen in modern Milvus, but handle it
-                        ids = list(range(len(embedded_chunks)))
-                        data.append(ids)
-                elif field.name == "vector" or field.name == "embedding":
-                    # Old schema might use 'vector' instead of 'embedding'
+                # Skip auto-generated primary key
+                if field.is_primary and field.auto_id:
+                    continue
+
+                # Handle primary key without auto_id
+                if field.is_primary and not field.auto_id:
+                    # Generate sequential IDs starting from timestamp to avoid collisions
+                    base_id = int(time.time() * 1000)
+                    ids = [base_id + i for i in range(len(embedded_chunks))]
+                    data.append(ids)
+                elif field.dtype == DataType.FLOAT_VECTOR:
+                    # This is the vector/embedding field
                     data.append(embeddings)
+                else:
+                    # Unknown field - log warning and try to provide empty/default data
+                    print(f"⚠️  Unknown field in schema: {field.name} (type: {field.dtype})")
+                    if field.dtype == DataType.VARCHAR:
+                        data.append(["" for _ in embedded_chunks])
+                    elif field.dtype == DataType.INT64:
+                        data.append([0 for _ in embedded_chunks])
         else:
             # New schema: id, embedding, content, file_path, repository_url, chunk_index
             contents = [ec.chunk.content[:65535] for ec in embedded_chunks]  # Truncate if needed
