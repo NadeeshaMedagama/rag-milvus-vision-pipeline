@@ -27,7 +27,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -65,7 +65,7 @@ jobs:
 
     - name: Upload outdated packages report
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: outdated-packages-report
         path: outdated_report.md
@@ -73,7 +73,7 @@ jobs:
 
     - name: Upload security audit report
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: security-audit-report
         path: security_audit.md
@@ -81,7 +81,7 @@ jobs:
 
     - name: Upload license report
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: license-report
         path: license_report.md
@@ -101,7 +101,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Extract base image
       id: extract
@@ -124,7 +124,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: List GitHub Actions
       run: |
@@ -143,7 +143,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Dependency Review
       uses: actions/dependency-review-action@v4
