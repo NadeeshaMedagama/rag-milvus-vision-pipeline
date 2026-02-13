@@ -35,9 +35,22 @@ jobs:
           echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
         fi
 
+    - name: Check for previous tags
+      id: check_tags
+      run: |
+        TAG_COUNT=$(git tag -l | wc -l)
+        echo "tag_count=$TAG_COUNT" >> $GITHUB_OUTPUT
+        if [ "$TAG_COUNT" -gt 1 ]; then
+          echo "has_previous_tags=true" >> $GITHUB_OUTPUT
+        else
+          echo "has_previous_tags=false" >> $GITHUB_OUTPUT
+        fi
+
     - name: Generate changelog
       id: changelog
+      if: steps.check_tags.outputs.has_previous_tags == 'true'
       uses: mikepenz/release-changelog-builder-action@v4
+      continue-on-error: true
       with:
         configuration: |
           {
@@ -68,6 +81,28 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Generate initial changelog (first release)
+      id: initial_changelog
+      if: steps.check_tags.outputs.has_previous_tags == 'false' || steps.changelog.outcome == 'failure'
+      run: |
+        echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+        echo "## 🎉 Initial Release" >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        echo "This is the first release of Python RAG with Milvus & LangGraph." >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        echo "### Features" >> $GITHUB_OUTPUT
+        echo "- 📚 GitHub Repository Integration" >> $GITHUB_OUTPUT
+        echo "- 🌐 URL Content Processing" >> $GITHUB_OUTPUT
+        echo "- 🖼️ Google Vision API Integration" >> $GITHUB_OUTPUT
+        echo "- 📊 Multi-Format Document Support (50+ file types)" >> $GITHUB_OUTPUT
+        echo "- ✂️ Intelligent Document Chunking" >> $GITHUB_OUTPUT
+        echo "- 🧠 Azure OpenAI Embeddings" >> $GITHUB_OUTPUT
+        echo "- 🗄️ Milvus Cloud Vector Storage" >> $GITHUB_OUTPUT
+        echo "- 🔄 LangGraph Workflow Orchestration" >> $GITHUB_OUTPUT
+        echo "- 🔍 Interactive Query Interface" >> $GITHUB_OUTPUT
+        echo "- 🐳 Docker Support" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -93,26 +128,38 @@ jobs:
     - name: Generate release notes
       id: release_notes
       run: |
-        cat > release_notes.md << 'EOF'
+        # Use changelog from action or initial changelog
+        if [ "${{ steps.check_tags.outputs.has_previous_tags }}" == "true" ] && [ "${{ steps.changelog.outcome }}" == "success" ]; then
+          CHANGELOG_CONTENT="${{ steps.changelog.outputs.changelog }}"
+        else
+          CHANGELOG_CONTENT="${{ steps.initial_changelog.outputs.CHANGELOG }}"
+        fi
+        
+        cat > release_notes.md << EOF
         # Python RAG with Milvus - ${{ steps.get_version.outputs.VERSION }}
         
         ## What's Changed
-        ${{ steps.changelog.outputs.changelog }}
+        ${CHANGELOG_CONTENT}
         
         ## 📦 Installation
         
         ### Using Docker (Recommended)
-        ```bash
+        \`\`\`bash
+        # From Docker Hub
+        docker pull ${{ secrets.DOCKER_USERNAME }}/rag-milvus-vision-pipeline:${{ steps.get_version.outputs.VERSION }}
+        docker run -p 5000:5000 ${{ secrets.DOCKER_USERNAME }}/rag-milvus-vision-pipeline:${{ steps.get_version.outputs.VERSION }}
+        
+        # From GitHub Container Registry
         docker pull ghcr.io/${{ github.repository }}:${{ steps.get_version.outputs.VERSION }}
         docker run -p 5000:5000 ghcr.io/${{ github.repository }}:${{ steps.get_version.outputs.VERSION }}
-        ```
+        \`\`\`
         
         ### From Source
-        ```bash
+        \`\`\`bash
         # Download and extract
         wget https://github.com/${{ github.repository }}/archive/${{ steps.get_version.outputs.VERSION }}.tar.gz
         tar -xzf ${{ steps.get_version.outputs.VERSION }}.tar.gz
-        cd python-rag-milvus-*
+        cd rag-milvus-vision-pipeline-*
         
         # Install dependencies
         pip install -r requirements.txt
@@ -123,17 +170,18 @@ jobs:
         
         # Run the application
         python main.py
-        ```
+        \`\`\`
         
         ## 🔗 Resources
         
         - [Documentation](https://github.com/${{ github.repository }}/blob/${{ steps.get_version.outputs.VERSION }}/README.md)
-        - [Docker Image](https://ghcr.io/${{ github.repository }})
+        - [Docker Hub](https://hub.docker.com/r/${{ secrets.DOCKER_USERNAME }}/rag-milvus-vision-pipeline)
+        - [GitHub Container Registry](https://ghcr.io/${{ github.repository }})
         - [Report Issues](https://github.com/${{ github.repository }}/issues)
         
         ## 📊 Artifacts
         
-        - Docker images available for `linux/amd64` and `linux/arm64`
+        - Docker images available for \`linux/amd64\` and \`linux/arm64\`
         - Source code archive attached below
         - SBOM (Software Bill of Materials) available in artifacts
         EOF
