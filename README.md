@@ -1,5 +1,11 @@
 # Python RAG with Milvus & LangGraph
 
+[![CI/CD Pipeline](https://github.com/YOUR_USERNAME/Pythin_RAG_with_Milvus/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/Pythin_RAG_with_Milvus/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/YOUR_USERNAME/Pythin_RAG_with_Milvus/actions/workflows/codeql.yml/badge.svg)](https://github.com/YOUR_USERNAME/Pythin_RAG_with_Milvus/actions/workflows/codeql.yml)
+[![Docker Build](https://github.com/YOUR_USERNAME/Pythin_RAG_with_Milvus/actions/workflows/docker.yml/badge.svg)](https://github.com/YOUR_USERNAME/Pythin_RAG_with_Milvus/actions/workflows/docker.yml)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
+
 A production-ready Retrieval-Augmented Generation (RAG) application that processes markdown files from GitHub repositories, creates embeddings using Azure OpenAI, and stores them in Milvus Cloud. Built with LangGraph for workflow orchestration and following SOLID principles.
 
 ## 🌟 Features
@@ -95,10 +101,192 @@ python test_setup.py
    python query.py
    ```
 
+## 🚢 Docker Deployment
+
+### Pull Pre-built Image
+
+```bash
+# Pull the latest image from GitHub Container Registry
+docker pull ghcr.io/YOUR_USERNAME/pythin_rag_with_milvus:latest
+
+# Run the container
+docker run -d -p 5000:5000 \
+  --name rag-api \
+  -e AZURE_OPENAI_API_KEY=your_key \
+  -e AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/ \
+  -e MILVUS_URI=https://your-instance.cloud.milvus.io:19530 \
+  -e MILVUS_TOKEN=your_token \
+  ghcr.io/YOUR_USERNAME/pythin_rag_with_milvus:latest
+```
+
+### Build Locally
+
+```bash
+# Build the Docker image
+docker build -t python-rag-milvus:local .
+
+# Run the container
+docker run -d -p 5000:5000 \
+  --name rag-api \
+  --env-file .env \
+  python-rag-milvus:local
+
+# Check health
+curl http://localhost:5000/health
+```
+
+### API Endpoints
+
+- **Health Check**: `GET /health`
+- **Query**: `POST /api/query`
+  ```json
+  {
+    "query": "How do I configure Milvus?",
+    "top_k": 5
+  }
+  ```
+
+## 🔄 CI/CD Pipeline
+
+This project includes a comprehensive CI/CD pipeline using GitHub Actions that provides:
+
+### Automated Workflows
+
+#### 1. **CI/CD Pipeline** (`.github/workflows/ci.yml`)
+Runs on every push and pull request to `main` and `develop` branches.
+
+**Features:**
+- ✅ Code quality checks (Black, isort, flake8, pylint)
+- 🔍 Type checking with mypy
+- 🛡️ Security scanning with Bandit
+- 🧪 Automated testing with pytest and coverage reporting
+- 📊 Coverage reports uploaded to Codecov
+- 🐳 Docker image build and testing
+- 🔒 Container vulnerability scanning with Trivy
+
+#### 2. **CodeQL Security Analysis** (`.github/workflows/codeql.yml`)
+Runs weekly and on every push/PR.
+
+**Features:**
+- 🔐 Advanced security vulnerability detection
+- 📈 Code quality analysis
+- 🎯 Python-specific security patterns
+- 📊 Results uploaded to GitHub Security tab
+- ⏰ Scheduled weekly scans (Mondays at 6:00 AM UTC)
+
+#### 3. **Docker Build & Publish** (`.github/workflows/docker.yml`)
+Runs on main branch pushes and version tags.
+
+**Features:**
+- 🐳 Multi-platform builds (linux/amd64, linux/arm64)
+- 📦 Publishes to GitHub Container Registry (ghcr.io)
+- 🏷️ Semantic versioning with tags
+- 🔒 Image vulnerability scanning with Trivy
+- 📋 SBOM (Software Bill of Materials) generation
+- 💾 Build cache optimization
+
+#### 4. **Release Management** (`.github/workflows/release.yml`)
+Triggered on version tags (v*.*.*) or manual dispatch.
+
+**Features:**
+- 📝 Automated changelog generation
+- 🎉 GitHub Release creation
+- 📦 Source distribution packaging
+- 🐳 Docker image tagging
+- 📊 Release notes with categorized changes
+
+#### 5. **Dependency Updates** (`.github/workflows/dependency-check.yml`)
+Runs weekly and on dependency file changes.
+
+**Features:**
+- 📦 Checks for outdated Python packages
+- 🔒 Security vulnerability audits with pip-audit
+- 📄 License compliance reporting
+- 🐳 Docker base image update checks
+- 🔄 GitHub Actions version tracking
+
+#### 6. **Dependabot Configuration** (`.github/dependabot.yml`)
+Automated dependency updates.
+
+**Features:**
+- 🔄 Weekly automated dependency updates
+- 🐍 Python package updates (grouped by category)
+- 🐳 Docker base image updates
+- ⚙️ GitHub Actions workflow updates
+- 🤖 Auto-merge for patch updates
+
+### Setting Up CI/CD
+
+1. **Enable GitHub Actions** in your repository settings
+
+2. **Configure Secrets** (Settings → Secrets and variables → Actions):
+   - `GITHUB_TOKEN` is automatically provided
+   - Add any additional secrets needed for your deployment
+
+3. **Enable GitHub Container Registry**:
+   - Go to repository Settings → Actions → General
+   - Under "Workflow permissions", select "Read and write permissions"
+
+4. **Enable Security Features**:
+   - Go to Settings → Security → Code security and analysis
+   - Enable "Dependency graph"
+   - Enable "Dependabot alerts"
+   - Enable "Dependabot security updates"
+   - Enable "CodeQL analysis"
+
+5. **Update Badge URLs** in README.md:
+   - Replace `YOUR_USERNAME` with your GitHub username
+
+### Workflow Triggers
+
+| Workflow | Push | PR | Tag | Schedule | Manual |
+|----------|------|-----|-----|----------|--------|
+| CI/CD Pipeline | ✅ | ✅ | ❌ | ❌ | ✅ |
+| CodeQL Analysis | ✅ | ✅ | ❌ | ✅ Weekly | ✅ |
+| Docker Build | ✅ main | ✅ | ✅ | ❌ | ✅ |
+| Release | ❌ | ❌ | ✅ v*.*.* | ❌ | ✅ |
+| Dependency Check | ❌ | ✅ deps | ❌ | ✅ Weekly | ✅ |
+
+### Creating a Release
+
+To create a new release:
+
+```bash
+# Tag the release
+git tag -a v1.0.0 -m "Release version 1.0.0"
+
+# Push the tag to GitHub
+git push origin v1.0.0
+```
+
+This will automatically:
+1. Trigger the Release workflow
+2. Build and push Docker images with version tags
+3. Generate changelog from commit history
+4. Create a GitHub Release with artifacts
+5. Publish to GitHub Container Registry
+
+### Monitoring
+
+- **Workflow runs**: Check the "Actions" tab in your repository
+- **Security alerts**: Check the "Security" tab for CodeQL and Trivy results
+- **Coverage reports**: Uploaded as artifacts in workflow runs
+- **Docker images**: Available at `ghcr.io/YOUR_USERNAME/pythin_rag_with_milvus`
+
 ## 📁 Project Structure
 
 ```
 .
+├── .github/                     # 🔄 CI/CD Configuration
+│   ├── workflows/
+│   │   ├── ci.yml              # Main CI/CD pipeline
+│   │   ├── codeql.yml          # Security analysis
+│   │   ├── docker.yml          # Docker build & publish
+│   │   ├── release.yml         # Release management
+│   │   ├── dependency-check.yml # Dependency auditing
+│   │   └── dependabot-auto-merge.yml # Auto-merge bot
+│   └── dependabot.yml          # Dependabot configuration
+│
 ├── config/                      # ⚙️  Configuration management
 │   ├── __init__.py
 │   └── settings.py             # Pydantic settings from .env
@@ -139,8 +327,10 @@ python test_setup.py
 │
 ├── main.py                     # 🎯 Main entry point for indexing
 ├── query.py                    # 🔍 Interactive query interface
+├── api_server.py               # 🌐 REST API server
 ├── test_setup.py               # 🧪 Setup verification script
 ├── requirements.txt            # 📋 Python dependencies
+├── Dockerfile                  # 🐳 Container configuration
 ├── .env                        # 🔐 Your configuration (edit this)
 ├── .env.example                # 📝 Configuration template
 ├── README.md                   # 📖 This file
