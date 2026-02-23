@@ -85,28 +85,27 @@ def liveness():
 @app.route('/rag/readyz', methods=['GET'])
 def readiness():
     """Readiness probe - checks if services can be initialized."""
-    import signal
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 
-    class TimeoutError(Exception):
-        pass
-
-    def timeout_handler(signum, frame):
-        raise TimeoutError("Readiness check timed out")
+    def _check_ready():
+        try:
+            get_vector_store()
+            return True
+        except Exception as e:
+            return str(e)
 
     try:
-        # Set a 10-second timeout for the readiness check
-        old_handler = signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(10)  # 10 second timeout
+        # Use a thread-safe timeout (signal.SIGALRM doesn't work in threaded gunicorn workers)
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_check_ready)
+            result = future.result(timeout=10)  # 10 second timeout
 
-        try:
-            # Try to initialize services
-            get_vector_store()
+        if result is True:
             return jsonify({'status': 'ready'}), 200
-        finally:
-            signal.alarm(0)  # Cancel the alarm
-            signal.signal(signal.SIGALRM, old_handler)  # Restore old handler
+        else:
+            return jsonify({'status': 'not ready', 'error': result}), 503
 
-    except TimeoutError as e:
+    except FutureTimeoutError:
         return jsonify({'status': 'not ready', 'error': 'Connection timeout'}), 503
     except Exception as e:
         return jsonify({'status': 'not ready', 'error': str(e)}), 503
