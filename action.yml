@@ -1,5 +1,5 @@
 name: 'RAG Milvus Vision Pipeline'
-description: 'A comprehensive RAG pipeline action that processes documents, images, and code repositories using Milvus vector store, Google Vision API, and Azure OpenAI embeddings with LangGraph orchestration.'
+description: 'Production RAG app using Azure OpenAI, Milvus, LangGraph, SOLID principles.'
 author: 'NadeeshaMedagama'
 
 branding:
