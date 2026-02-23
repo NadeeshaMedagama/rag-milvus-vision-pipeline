@@ -1,0 +1,210 @@
+name: 'RAG Milvus Vision Pipeline'
+description: 'A comprehensive RAG pipeline action that processes documents, images, and code repositories using Milvus vector store, Google Vision API, and Azure OpenAI embeddings with LangGraph orchestration.'
+author: 'NadeeshaMedagama'
+
+branding:
+  icon: 'database'
+  color: 'blue'
+
+inputs:
+  milvus-uri:
+    description: 'Milvus Cloud cluster URI'
+    required: true
+  milvus-token:
+    description: 'Milvus Cloud API token'
+    required: true
+  milvus-collection-name:
+    description: 'Name of the Milvus collection'
+    required: false
+    default: 'rag_collection'
+  azure-openai-api-key:
+    description: 'Azure OpenAI API key for embeddings'
+    required: true
+  azure-openai-endpoint:
+    description: 'Azure OpenAI endpoint URL'
+    required: true
+  azure-openai-embedding-deployment:
+    description: 'Azure OpenAI embedding deployment name'
+    required: false
+    default: 'text-embedding-ada-002'
+  azure-openai-api-version:
+    description: 'Azure OpenAI API version'
+    required: false
+    default: '2024-02-01'
+  embedding-dimension:
+    description: 'Dimension of the embedding vectors'
+    required: false
+    default: '1536'
+  github-repo-url:
+    description: 'GitHub repository URL to process (optional)'
+    required: false
+    default: ''
+  data-directory:
+    description: 'Path to local data directory with diagrams and documents'
+    required: false
+    default: './data/diagrams'
+  google-vision-credentials-json:
+    description: 'Google Vision API service account JSON (base64 encoded)'
+    required: false
+    default: ''
+  google-vision-max-results:
+    description: 'Maximum results for Google Vision API analysis'
+    required: false
+    default: '10'
+  skip-existing:
+    description: 'Skip documents that already exist in the vector store'
+    required: false
+    default: 'true'
+  force-reprocess:
+    description: 'Force reprocessing of all documents'
+    required: false
+    default: 'false'
+  mode:
+    description: 'Processing mode: ingest (run pipeline) or query (start API server)'
+    required: false
+    default: 'ingest'
+  query-text:
+    description: 'Query text for retrieval (only used in query mode)'
+    required: false
+    default: ''
+  top-k:
+    description: 'Number of top results to return in query mode'
+    required: false
+    default: '5'
+
+outputs:
+  status:
+    description: 'Pipeline execution status (success/failed)'
+  documents-processed:
+    description: 'Number of documents processed'
+  embeddings-created:
+    description: 'Number of embeddings created and stored'
+  collection-name:
+    description: 'Name of the Milvus collection used'
+  query-results:
+    description: 'Query results in JSON format (only in query mode)'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r ${{ github.action_path }}/requirements.txt
+
+    - name: Configure Google Vision credentials
+      if: inputs.google-vision-credentials-json != ''
+      shell: bash
+      run: |
+        echo "${{ inputs.google-vision-credentials-json }}" | base64 -d > /tmp/gcloud-credentials.json
+        echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcloud-credentials.json" >> $GITHUB_ENV
+
+    - name: Configure environment
+      shell: bash
+      run: |
+        cat > ${{ github.action_path }}/.env << EOF
+        MILVUS_URI=${{ inputs.milvus-uri }}
+        MILVUS_TOKEN=${{ inputs.milvus-token }}
+        MILVUS_COLLECTION_NAME=${{ inputs.milvus-collection-name }}
+        AZURE_OPENAI_API_KEY=${{ inputs.azure-openai-api-key }}
+        AZURE_OPENAI_ENDPOINT=${{ inputs.azure-openai-endpoint }}
+        AZURE_OPENAI_EMBEDDING_DEPLOYMENT=${{ inputs.azure-openai-embedding-deployment }}
+        AZURE_OPENAI_API_VERSION=${{ inputs.azure-openai-api-version }}
+        EMBEDDING_DIMENSION=${{ inputs.embedding-dimension }}
+        GITHUB_REPO_URL=${{ inputs.github-repo-url }}
+        LOCAL_DATA_DIRECTORY=${{ inputs.data-directory }}
+        GOOGLE_VISION_MAX_RESULTS=${{ inputs.google-vision-max-results }}
+        SKIP_EXISTING=${{ inputs.skip-existing }}
+        FORCE_REPROCESS=${{ inputs.force-reprocess }}
+        EOF
+
+    - name: Run RAG pipeline (ingest mode)
+      if: inputs.mode == 'ingest'
+      id: ingest
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |
+        echo "🚀 Starting RAG Milvus Vision Pipeline..."
+        python main.py 2>&1 | tee pipeline_output.log
+        
+        # Extract metrics from output
+        DOCS=$(grep -oP 'Processed \K\d+' pipeline_output.log | tail -1 || echo "0")
+        EMBEDDINGS=$(grep -oP 'Created \K\d+' pipeline_output.log | tail -1 || echo "0")
+        
+        if grep -q "Workflow Status: success" pipeline_output.log; then
+          echo "status=success" >> $GITHUB_OUTPUT
+        else
+          echo "status=failed" >> $GITHUB_OUTPUT
+        fi
+        
+        echo "documents-processed=${DOCS}" >> $GITHUB_OUTPUT
+        echo "embeddings-created=${EMBEDDINGS}" >> $GITHUB_OUTPUT
+        echo "collection-name=${{ inputs.milvus-collection-name }}" >> $GITHUB_OUTPUT
+
+    - name: Run RAG query (query mode)
+      if: inputs.mode == 'query' && inputs.query-text != ''
+      id: query
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |
+        echo "🔍 Running RAG query..."
+        python -c "
+        import json
+        from config import get_settings
+        from services import AzureOpenAIEmbeddingService, MilvusVectorStore
+        from query import RAGQueryService
+
+        settings = get_settings()
+        embedding_service = AzureOpenAIEmbeddingService(
+            api_key=settings.azure_openai_api_key,
+            endpoint=settings.azure_openai_endpoint,
+            deployment_name=settings.azure_openai_embedding_deployment,
+            api_version=settings.azure_openai_api_version
+        )
+        vector_store = MilvusVectorStore(
+            uri=settings.milvus_uri,
+            token=settings.milvus_token,
+            collection_name=settings.milvus_collection_name,
+            embedding_dimension=settings.embedding_dimension
+        )
+        query_service = RAGQueryService(
+            embedding_service=embedding_service,
+            vector_store=vector_store
+        )
+        results = query_service.query('${{ inputs.query-text }}', top_k=${{ inputs.top-k }})
+        print(json.dumps(results, indent=2))
+        " > query_results.json 2>&1
+        
+        echo "query-results=$(cat query_results.json | jq -c .)" >> $GITHUB_OUTPUT
+        echo "status=success" >> $GITHUB_OUTPUT
+        echo "collection-name=${{ inputs.milvus-collection-name }}" >> $GITHUB_OUTPUT
+
+    - name: Generate step summary
+      if: always()
+      shell: bash
+      run: |
+        echo "## 🧠 RAG Milvus Vision Pipeline Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Mode | \`${{ inputs.mode }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| Collection | \`${{ inputs.milvus-collection-name }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| Data Directory | \`${{ inputs.data-directory }}\` |" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ inputs.mode }}" == "ingest" ]; then
+          echo "| Status | \`${{ steps.ingest.outputs.status || 'N/A' }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Documents Processed | \`${{ steps.ingest.outputs.documents-processed || '0' }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Embeddings Created | \`${{ steps.ingest.outputs.embeddings-created || '0' }}\` |" >> $GITHUB_STEP_SUMMARY
+        fi
+
+    - name: Cleanup credentials
+      if: always()
+      shell: bash
+      run: rm -f /tmp/gcloud-credentials.json
+
