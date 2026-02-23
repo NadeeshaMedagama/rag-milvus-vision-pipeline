@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     embedding_dimension: int = Field(default=1536, alias="EMBEDDING_DIMENSION")
 
     # Google Vision API Configuration
-    google_application_credentials: str = Field(..., alias="GOOGLE_APPLICATION_CREDENTIALS")
+    google_application_credentials: str = Field(default="", alias="GOOGLE_APPLICATION_CREDENTIALS")
     google_vision_max_results: int = Field(default=10, alias="GOOGLE_VISION_MAX_RESULTS")
 
     # Local Data Directory Configuration
