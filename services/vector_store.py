@@ -43,13 +43,18 @@ class MilvusVectorStore(IVectorStore):
         self._connect()
 
     def _connect(self) -> None:
-        """Connect to Milvus Cloud."""
-        connections.connect(
-            alias="default",
-            uri=self.uri,
-            token=self.token
-        )
-        print("Connected to Milvus Cloud")
+        """Connect to Milvus Cloud with timeout protection."""
+        try:
+            connections.connect(
+                alias="default",
+                uri=self.uri,
+                token=self.token,
+                timeout=30  # 30 second connection timeout
+            )
+            print("Connected to Milvus Cloud")
+        except Exception as e:
+            print(f"Warning: Failed to connect to Milvus Cloud: {e}")
+            raise
 
     def initialize_collection(self) -> None:
         """Initialize the vector collection."""
