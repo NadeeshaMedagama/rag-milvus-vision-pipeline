@@ -29,6 +29,15 @@ endpoints:
 
 # +optional Health probe configuration
 probes:
+  # Startup probe - gives container time to start before liveness kicks in
+  startup:
+    httpGet:
+      path: /livez
+      port: 5000
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 30
   # Liveness probe - checks if the container is running
   liveness:
     httpGet:
@@ -43,10 +52,10 @@ probes:
     httpGet:
       path: /readyz
       port: 5000
-    initialDelaySeconds: 30
-    periodSeconds: 15
-    timeoutSeconds: 15
-    failureThreshold: 5
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
 
 # +optional Defines runtime configurations
 configurations:
