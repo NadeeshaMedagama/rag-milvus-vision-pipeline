@@ -1,0 +1,21 @@
+Collecting odfpy
+  Downloading odfpy-1.4.1.tar.gz (717 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 717.0/717.0 kB 5.8 MB/s eta 0:00:00
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting defusedxml (from odfpy)
+  Downloading defusedxml-0.7.1-py2.py3-none-any.whl.metadata (32 kB)
+Downloading defusedxml-0.7.1-py2.py3-none-any.whl (25 kB)
+Building wheels for collected packages: odfpy
+  Building wheel for odfpy (pyproject.toml): started
+  Building wheel for odfpy (pyproject.toml): finished with status 'done'
+  Created wheel for odfpy: filename=odfpy-1.4.1-py2.py3-none-any.whl size=160718 sha256=2d9eba667c7e445a7358824393da3da66c6c2a03045706a39d8be3a0bca0bcd7
+  Stored in directory: /home/nadeeshame/.cache/pip/wheels/36/5d/63/8243a7ee78fff0f944d638fd0e66d7278888f5e2285d7346b6
+Successfully built odfpy
+Installing collected packages: defusedxml, odfpy
+
+Successfully installed defusedxml-0.7.1 odfpy-1.4.1
