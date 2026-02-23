@@ -84,30 +84,32 @@ def liveness():
 @app.route('/readyz', methods=['GET'])
 @app.route('/rag/readyz', methods=['GET'])
 def readiness():
-    """Readiness probe - checks if services can be initialized."""
-    from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
-
-    def _check_ready():
-        try:
-            get_vector_store()
-            return True
-        except Exception as e:
-            return str(e)
-
+    """Readiness probe - lightweight check that settings can load and app is configured."""
     try:
-        # Use a thread-safe timeout (signal.SIGALRM doesn't work in threaded gunicorn workers)
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(_check_ready)
-            result = future.result(timeout=10)  # 10 second timeout
+        # Only validate that settings can be loaded (env vars are present)
+        # Do NOT attempt Milvus connection here — it's too slow for a probe
+        settings = get_app_settings()
 
-        if result is True:
-            return jsonify({'status': 'ready'}), 200
-        else:
-            return jsonify({'status': 'not ready', 'error': result}), 503
+        # Verify critical config values are non-empty
+        checks = {
+            'milvus_uri': bool(settings.milvus_uri),
+            'milvus_token': bool(settings.milvus_token),
+            'azure_openai_api_key': bool(settings.azure_openai_api_key),
+            'azure_openai_endpoint': bool(settings.azure_openai_endpoint),
+        }
 
-    except FutureTimeoutError:
-        return jsonify({'status': 'not ready', 'error': 'Connection timeout'}), 503
+        missing = [k for k, v in checks.items() if not v]
+        if missing:
+            return jsonify({
+                'status': 'not ready',
+                'error': f'Missing configuration: {", ".join(missing)}'
+            }), 503
+
+        return jsonify({'status': 'ready'}), 200
+
     except Exception as e:
+        import traceback
+        print(f"Readiness check failed: {traceback.format_exc()}")
         return jsonify({'status': 'not ready', 'error': str(e)}), 503
 
 
