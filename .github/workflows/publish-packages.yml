@@ -245,7 +245,7 @@ jobs:
 
     - name: Download Python package artifact
       if: needs.publish-python.result == 'success'
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         pattern: python-package-*
         path: ./packages/
