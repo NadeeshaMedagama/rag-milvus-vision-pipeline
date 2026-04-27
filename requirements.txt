@@ -1,6 +1,6 @@
 langgraph>=0.0.40
 langchain>=0.1.0
-langchain-openai>=0.0.5
+langchain-openai>=1.2.1
 langchain-text-splitters>=0.0.1
 pymilvus>=2.3.0
 python-dotenv>=1.0.0
