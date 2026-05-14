@@ -1,4 +1,6 @@
 """Basic test suite for Python RAG application."""
+import re
+
 import pytest
 from pathlib import Path
 
@@ -99,26 +101,23 @@ def test_dockerfile_validity():
 def test_dockerfile_excludes_build_essential():
     """Test Dockerfile avoids compiler toolchain packages in runtime image."""
     dockerfile_path = Path(__file__).parent.parent / "Dockerfile"
-    content = dockerfile_path.read_text().splitlines()
+    content = dockerfile_path.read_text()
+    install_block = re.search(
+        r"apt-get install -y --no-install-recommends \\\n(.*?)\n\s*&&",
+        content,
+        re.DOTALL,
+    )
 
-    install_packages = set()
-    in_install_block = False
+    assert install_block, "Dockerfile should contain apt-get install block"
 
-    for line in content:
-        stripped = line.strip()
-        if "apt-get install -y --no-install-recommends" in stripped:
-            in_install_block = True
-            continue
+    install_packages = {
+        line.strip().rstrip("\\").strip()
+        for line in install_block.group(1).splitlines()
+        if line.strip()
+    }
 
-        if in_install_block:
-            if stripped.startswith("&& "):
-                break
-            package = stripped.rstrip("\\").strip()
-            if package:
-                install_packages.add(package)
-
-    forbidden_packages = ("build-essential", "gcc", "g++", "make", "linux-libc-dev")
-    for package in forbidden_packages:
+    excluded_toolchain_packages = ("build-essential", "gcc", "g++", "make", "linux-libc-dev")
+    for package in excluded_toolchain_packages:
         assert package not in install_packages
 
 
