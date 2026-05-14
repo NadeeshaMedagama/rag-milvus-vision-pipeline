@@ -96,6 +96,14 @@ def test_dockerfile_validity():
     assert "CMD" in content or "ENTRYPOINT" in content
 
 
+def test_dockerfile_excludes_build_essential():
+    """Test Dockerfile avoids unnecessary compiler toolchain in runtime image."""
+    dockerfile_path = Path(__file__).parent.parent / "Dockerfile"
+    content = dockerfile_path.read_text()
+
+    assert "build-essential" not in content
+
+
 @pytest.mark.parametrize("workflow_file", [
     "ci.yml",
     "codeql.yml",
@@ -122,4 +130,3 @@ def test_dependabot_config():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-
