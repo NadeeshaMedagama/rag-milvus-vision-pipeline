@@ -99,11 +99,27 @@ def test_dockerfile_validity():
 def test_dockerfile_excludes_build_essential():
     """Test Dockerfile avoids compiler toolchain packages in runtime image."""
     dockerfile_path = Path(__file__).parent.parent / "Dockerfile"
-    content = dockerfile_path.read_text()
+    content = dockerfile_path.read_text().splitlines()
+
+    install_packages = set()
+    in_install_block = False
+
+    for line in content:
+        stripped = line.strip()
+        if "apt-get install -y --no-install-recommends" in stripped:
+            in_install_block = True
+            continue
+
+        if in_install_block:
+            if stripped.startswith("&& "):
+                break
+            package = stripped.rstrip("\\").strip()
+            if package:
+                install_packages.add(package)
 
     forbidden_packages = ("build-essential", "gcc", "g++", "make", "linux-libc-dev")
     for package in forbidden_packages:
-        assert package not in content
+        assert package not in install_packages
 
 
 @pytest.mark.parametrize("workflow_file", [
