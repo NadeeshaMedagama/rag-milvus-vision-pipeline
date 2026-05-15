@@ -1,4 +1,6 @@
 """Basic test suite for Python RAG application."""
+import re
+
 import pytest
 from pathlib import Path
 
@@ -96,6 +98,29 @@ def test_dockerfile_validity():
     assert "CMD" in content or "ENTRYPOINT" in content
 
 
+def test_dockerfile_excludes_build_essential():
+    """Test Dockerfile avoids compiler toolchain packages in runtime image."""
+    dockerfile_path = Path(__file__).parent.parent / "Dockerfile"
+    content = dockerfile_path.read_text()
+    install_block = re.search(
+        r"apt-get install -y --no-install-recommends \\\n(.*?)\n\s*&&",
+        content,
+        re.DOTALL,
+    )
+
+    assert install_block, "Dockerfile should contain apt-get install block"
+
+    install_packages = {
+        line.strip().rstrip("\\").strip()
+        for line in install_block.group(1).splitlines()
+        if line.strip()
+    }
+
+    excluded_toolchain_packages = ("build-essential", "gcc", "g++", "make", "linux-libc-dev")
+    for package in excluded_toolchain_packages:
+        assert package not in install_packages
+
+
 @pytest.mark.parametrize("workflow_file", [
     "ci.yml",
     "codeql.yml",
@@ -122,4 +147,3 @@ def test_dependabot_config():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

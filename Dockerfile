@@ -11,7 +11,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
     git \
     curl \
     && rm -rf /var/lib/apt/lists/*
@@ -41,4 +40,3 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 # Run the application with gunicorn for production
 # --preload is removed to allow lazy loading to work properly
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "--timeout", "120", "--graceful-timeout", "30", "--keep-alive", "5", "api_server:app"]
-
